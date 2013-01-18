@@ -6,7 +6,42 @@
 #endif
 
 template <typename Real>
-class Compiler
+class CompilerBase
+{
+};
+
+template <>
+class CompilerBase<double>
+{
+protected:
+	enum
+	{
+		REAL = 'D'
+	};
+
+	static llvm::Type* createRealType(llvm::LLVMContext& context)
+	{
+		return llvm::Type::getDoubleTy(context);
+	}
+};
+
+template <>
+class CompilerBase<float>
+{
+protected:
+	enum
+	{
+		REAL = 'F'
+	};
+
+	static llvm::Type* createRealType(llvm::LLVMContext& context)
+	{
+		return llvm::Type::getFloatTy(context);
+	}
+};
+
+template <typename Real>
+class Compiler : public CompilerBase<Real>
 {
 public:
 	llvm::LLVMContext& context;
@@ -20,12 +55,21 @@ private:
 	typedef set<ASTNode*> Nodes;
 	Nodes _nodes;
 
+	typedef Lexer<Real> L;
+
+	enum
+	{
+		VECTOR = 'V'
+	};
+	using CompilerBase<Real>::REAL;
+	using CompilerBase<Real>::createRealType;
+
 public:
 	Compiler(llvm::LLVMContext& context):
 		context(context),
 		builder(context)
 	{
-		realType = createRealType((Real) 0.0);
+		realType = createRealType(context);
 		vectorType = llvm::VectorType::get(realType, 4);
 		structType = llvm::StructType::get(
 				realType, realType, realType, NULL);
@@ -46,8 +90,112 @@ public:
 		return *p;
 	};
 
-	void parse(std::istream& signaturestream, std::istream& codestream)
+public:
+	void compile(std::istream& signaturestream, std::istream& codestream)
 	{
+		vector< pair<string, char> > arguments;
+		char returntype;
+
+		L signaturelexer(signaturestream);
+		parse_type_signature(signaturelexer, arguments, returntype);
+		expect_eof(signaturelexer);
+
+		L codelexer(codestream);
+	}
+
+private:
+	void expect(L& lexer, int token)
+	{
+		if (lexer.token() != token)
+		{
+			std::stringstream s;
+			s << "expected " << token;
+			lexer.error(s.str());
+		}
+		lexer.next();
+	}
+
+	void expect_operator(L& lexer, const string& s)
+	{
+		if ((lexer.token() != L::OPERATOR) || (lexer.id() != s))
+			lexer.error(string("expected '"+s+"'"));
+		lexer.next();
+	}
+
+	void expect_eof(L& lexer)
+	{
+		if (lexer.token() != L::EOF)
+			lexer.error("expected EOF");
+	}
+
+	void parse_identifier(L& lexer, string& id)
+	{
+		if (lexer.token() != L::IDENTIFIER)
+			lexer.error("expected identifier");
+
+		id = lexer.id();
+		lexer.next();
+	}
+
+	void parse_list_separator(L& lexer)
+	{
+		switch (lexer.token())
+		{
+			case L::COMMA:
+				lexer.next();
+				break;
+
+			case L::CLOSEPAREN:
+				break;
+
+			default:
+				lexer.error("expected comma or close parenthesis");
+		}
+	}
+
+	void parse_typespec(L& lexer, char& type)
+	{
+		expect(lexer, L::COLON);
+
+		if (lexer.token() != L::IDENTIFIER)
+			lexer.error("expected a type name");
+
+		if (lexer.id() == "vector")
+			type = VECTOR;
+		else if (lexer.id() == "real")
+			type = REAL;
+		else
+			lexer.error("expected a type name");
+
+		lexer.next();
+	}
+
+	void parse_type_signature(L& lexer, vector<pair<string, char> >& arguments,
+			char& returntype)
+	{
+		expect(lexer, L::OPENPAREN);
+
+		while (lexer.token() != L::CLOSEPAREN)
+		{
+			std::cerr << "token " << lexer.token() << "\n";
+
+			string id;
+			char type = REAL;
+
+			parse_identifier(lexer, id);
+
+			if (lexer.token() == L::COLON)
+				parse_typespec(lexer, type);
+
+			arguments.push_back(pair<string, char>(id, type));
+			parse_list_separator(lexer);
+		}
+
+		expect(lexer, L::CLOSEPAREN);
+
+		returntype = REAL;
+		if (lexer.token() == L::COLON)
+			parse_typespec(lexer, returntype);
 	}
 
 private:
@@ -72,16 +220,6 @@ private:
 	};
 
 private:
-	llvm::Type* createRealType(double)
-	{
-		return llvm::Type::getDoubleTy(context);
-	}
-
-	llvm::Type* createRealType(float)
-	{
-		return llvm::Type::getFloatTy(context);
-	}
-
 	struct ASTNode
 	{
 		ASTNode& parent;

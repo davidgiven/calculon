@@ -9,20 +9,18 @@ template <typename Real>
 class Lexer
 {
 public:
-	enum Token
+	enum
 	{
 		INVALID,
 		EOF,
+		NUMBER,
 		IDENTIFIER,
 		OPERATOR,
-		NUMBER,
 		EQUALS,
-		LET,
-		AND,
-		OR,
-		NOT,
-		VECTOR,
-		REAL
+		OPENPAREN,
+		CLOSEPAREN,
+		COMMA,
+		COLON
 	};
 
 	class LexerException : public CompilationException
@@ -36,7 +34,7 @@ public:
 
 private:
 	std::istream& _data;
-	Token _token;
+	int _token;
 	string _idValue;
 	Real _realValue;
 	int _line;
@@ -53,7 +51,7 @@ public:
 		next();
 	}
 
-	Token token() const
+	int token() const
 	{
 		assert(_token != INVALID);
 		return _token;
@@ -71,7 +69,7 @@ public:
 		return _realValue;
 	}
 
-	Token next()
+	int next()
 	{
 		int c;
 		for (;;)
@@ -88,11 +86,11 @@ public:
 		}
 
 		if (std::isdigit(c))
-			readNumber();
+			read_number();
 		else if (isid(c))
-			readId();
+			read_id();
 		else if (std::ispunct(c))
-			readOperator();
+			read_operator();
 		else
 		{
 			std::stringstream s;
@@ -151,7 +149,7 @@ private:
 		return c;
 	}
 
-	void readNumber()
+	void read_number()
 	{
 		std::ios::streampos pos = _data.tellg();
 
@@ -163,7 +161,7 @@ private:
 		_token = NUMBER;
 	}
 
-	void readId()
+	void read_id()
 	{
 		std::stringstream s;
 
@@ -175,23 +173,10 @@ private:
 		while (iscontinuedid(_data.peek()));
 
 		_idValue = s.str();
-
-		if (_idValue == "let")
-			_token = LET;
-		else if (_idValue == "and")
-			_token = AND;
-		else if (_idValue == "or")
-			_token = OR;
-		else if (_idValue == "not")
-			_token = NOT;
-		else if (_idValue == "vector")
-			_token = VECTOR;
-		else if (_idValue == "real")
-			_token = REAL;
 		_token = IDENTIFIER;
 	}
 
-	void readOperator()
+	void read_operator()
 	{
 		int c = consume();
 		_idValue = (char) c;
@@ -204,7 +189,7 @@ private:
 				{
 					/* Oops, this is really a number */
 					_data.putback('.');
-					readNumber();
+					read_number();
 					return;
 				}
 				break;
@@ -220,7 +205,16 @@ private:
 				break;
 		}
 
-		_token = OPERATOR;
+		if (_idValue == "(")
+			_token = OPENPAREN;
+		else if (_idValue == ")")
+			_token = CLOSEPAREN;
+		else if (_idValue == ":")
+			_token = COLON;
+		else if (_idValue == ",")
+			_token = COMMA;
+		else
+			_token = OPERATOR;
 	}
 };
 

@@ -125,8 +125,6 @@ namespace Calculon
 		llvm::BasicBlock* _toplevel;
 		FuncType* _funcptr;
 
-		typedef Lexer<Real> L;
-
 	public:
 		Program(const SymbolTable& symbols, const string& code, const string& signature):
 				_symbols(symbols),
@@ -205,33 +203,14 @@ namespace Calculon
 			Compiler<Real> compiler(_context);
 
 			std::istringstream signaturestream(signature);
-			compiler.parse(signaturestream, codestream);
+			compiler.compile(signaturestream, codestream);
 //			compiler.builder.SetInsertPoint(_toplevel);
 //			compiler.builder.CreateRet(c.codegen(compiler));
 
-			generate_machine_code();
+//			generate_machine_code();
 		}
 
 	private:
-		void expect_operator(L& lexer, const string& s)
-		{
-			if ((lexer.token() != L::OPERATOR) || (lexer.id() != s))
-				lexer.error(string("expected '"+s+"'"));
-			lexer.next();
-		}
-
-		void expect_eof(L& lexer)
-		{
-			if (lexer.token() != L::EOF)
-				lexer.error("expected EOF");
-		}
-
-		void parse_type_signature(L& lexer, vector<pair<string, char> >& arguments,
-				char& returntype)
-		{
-			expect_operator(lexer, "(");
-			expect_operator(lexer, ")");
-		}
 
 		void generate_machine_code()
 		{
