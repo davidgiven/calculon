@@ -69,6 +69,15 @@ private:
 	using CompilerBase<Real>::REAL;
 	using CompilerBase<Real>::createRealType;
 
+	class TypeException : public CompilationException
+	{
+	public:
+		TypeException(const string& what, ASTNode& node):
+			CompilationException(node.position.formatError(what))
+		{
+		}
+	};
+
 public:
 	Compiler(llvm::LLVMContext& context, llvm::Module* module):
 		context(context),
@@ -137,13 +146,6 @@ private:
 		}
 	};
 
-	llvm::Value* check_real(llvm::Value* v)
-	{
-		if (v->getType() != realType)
-			throw CompilationException("type mismatch: expected a real");
-		return v;
-	}
-
 private:
 	class ASTFrame;
 	class ASTFunction;
@@ -158,9 +160,11 @@ private:
 	struct ASTNode
 	{
 		ASTNode* parent;
+		Position position;
 
-		ASTNode():
-			parent(NULL)
+		ASTNode(const Position& position):
+			parent(NULL),
+			position(position)
 		{
 		}
 
@@ -172,7 +176,11 @@ private:
 
 		llvm::Value* codegen_to_real(Compiler& compiler)
 		{
-			return compiler.check_real(codegen(compiler));
+			llvm::Value* v = codegen(compiler);
+
+			if (v->getType() != compiler.realType)
+				throw TypeException("type mismatch: expected a real", *this);
+			return v;
 		}
 
 		virtual void visit(NodeVisitor& visitor)
@@ -185,7 +193,8 @@ private:
 	{
 		Real value;
 
-		ASTConstant(Real value):
+		ASTConstant(const Position& position, Real value):
+			ASTNode(position),
 			value(value)
 		{
 		}
@@ -203,7 +212,8 @@ private:
 		ASTNode& y;
 		ASTNode& z;
 
-		ASTVector(ASTNode& x, ASTNode& y, ASTNode& z):
+		ASTVector(const Position& position, ASTNode& x, ASTNode& y, ASTNode& z):
+			ASTNode(position),
 			x(x), y(y), z(z)
 		{
 			x.parent = y.parent = z.parent = this;
@@ -239,7 +249,8 @@ private:
 
 	struct ASTFrame : public ASTNode
 	{
-		ASTFrame()
+		ASTFrame(const Position& position):
+			ASTNode(position)
 		{
 		}
 
@@ -256,7 +267,8 @@ private:
 		ASTNode& body;
 		llvm::Function* _function;
 
-		ASTFunction(ASTNode& definition, ASTNode& body):
+		ASTFunction(const Position& position, ASTNode& definition, ASTNode& body):
+			ASTFrame(position),
 			definition(definition),
 			body(body),
 			_function(NULL)
@@ -297,7 +309,8 @@ private:
 	{
 		ASTNode& body;
 
-		ASTToplevel(ASTNode& body):
+		ASTToplevel(const Position& position, ASTNode& body):
+			ASTFrame(position),
 			body(body)
 		{
 			body.parent = this;
@@ -428,13 +441,15 @@ private:
 
 	ASTNode& parse_leaf(L& lexer)
 	{
+		Position position = lexer.position();
+
 		switch (lexer.token())
 		{
 			case L::NUMBER:
 			{
 				Real value = lexer.real();
 				lexer.next();
-				return node(new ASTConstant(value));
+				return node(new ASTConstant(position, value));
 			}
 
 			case L::OPERATOR:
@@ -452,6 +467,8 @@ private:
 
 	ASTVector& parse_vector(L& lexer)
 	{
+		Position position = lexer.position();
+
 		expect_operator(lexer, "<");
 		ASTNode& x = parse_leaf(lexer);
 		expect(lexer, L::COMMA);
@@ -460,13 +477,14 @@ private:
 		ASTNode& z = parse_leaf(lexer);
 		expect_operator(lexer, ">");
 
-		return node(new ASTVector(x, y, z));
+		return node(new ASTVector(position, x, y, z));
 	}
 
 	ASTToplevel& parse_toplevel(L& lexer)
 	{
+		Position position = lexer.position();
 		ASTNode& body = parse_leaf(lexer);
-		return node(new ASTToplevel(body));
+		return node(new ASTToplevel(position, body));
 	}
 };
 

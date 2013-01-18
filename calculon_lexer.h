@@ -5,6 +5,20 @@
 #error Don't include this, include calculon.h instead.
 #endif
 
+struct Position
+{
+	int line;
+	int column;
+
+	string formatError(const string& what)
+	{
+		std::stringstream s;
+		s << what
+			<< " at " << line << ":" << column;
+		return s.str();
+	}
+};
+
 template <typename Real>
 class Lexer
 {
@@ -27,7 +41,7 @@ public:
 	{
 	public:
 		LexerException(const string& what, Lexer& lexer):
-			CompilationException(lexer.formatError(what))
+			CompilationException(lexer.position().formatError(what))
 		{
 		}
 	};
@@ -37,16 +51,17 @@ private:
 	int _token;
 	string _idValue;
 	Real _realValue;
-	int _line;
-	int _column;
+	Position _tokenPos;
+	Position _pos;
 
 public:
 	Lexer(std::istream& data):
 		_data(data),
-		_token(INVALID),
-		_line(1),
-		_column(1)
+		_token(INVALID)
 	{
+		_pos.line = 1;
+		_pos.column = 1;
+
 		/* Prime the lexer with the first token. */
 		next();
 	}
@@ -85,6 +100,8 @@ public:
 			return EOF;
 		}
 
+		_tokenPos = _pos;
+
 		if (std::isdigit(c))
 			read_number();
 		else if (isid(c))
@@ -101,18 +118,9 @@ public:
 		return _token;
 	}
 
-	void position(int& line, int& column)
+	Position position() const
 	{
-		line = _line;
-		column = _column;
-	}
-
-	string formatError(const string& what)
-	{
-		std::stringstream s;
-		s << what
-			<< " at " << _line << ":" << _column;
-		return s.str();
+		return _tokenPos;
 	}
 
 	void error(const string& s)
@@ -140,11 +148,11 @@ private:
 
 		if (c == '\n')
 		{
-			_line++;
-			_column = 1;
+			_pos.line++;
+			_pos.column = 1;
 		}
 		else
-			_column++;
+			_pos.column++;
 
 		return c;
 	}
@@ -157,7 +165,7 @@ private:
 		if (!_data)
 			error("invalid number syntax");
 
-		_column += _data.tellg() - pos;
+		_pos.column += _data.tellg() - pos;
 		_token = NUMBER;
 	}
 
