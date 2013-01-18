@@ -14,8 +14,8 @@ int main(int argc, const char* argv[])
 	Calculon::StandardSymbolTable symbols;
 
 	typedef Number TestFunc();
-	Calculon::Function<Number, TestFunc> func(symbols, code, "()");
-	std::cout << "size of Function object: " << sizeof(func) << "\n";
+	Calculon::Program<Number, TestFunc> func(symbols, code, "()");
+	std::cout << "size of Program object: " << sizeof(func) << "\n";
 	func.dump();
 
 	func();

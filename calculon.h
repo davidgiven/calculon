@@ -4,9 +4,12 @@
 #include <stdexcept>
 #include <string>
 #include <map>
+#include <set>
+#include <vector>
 #include <sstream>
 #include <cassert>
 #include <cctype>
+#include <memory>
 #include "llvm/DerivedTypes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JIT.h"
@@ -25,8 +28,9 @@ namespace Calculon
 	using std::string;
 	using std::vector;
 	using std::map;
-	using std::auto_ptr;
 	using std::pair;
+	using std::set;
+	using std::auto_ptr;
 
 	class CompilationException : public std::invalid_argument
 	{
@@ -107,9 +111,10 @@ namespace Calculon
 		}
 	};
 
-	#include "lexer.h"
+	#include "calculon_lexer.h"
+	#include "calculon_compiler.h"
 
-	template <class Real, typename FuncType> class Function
+	template <class Real, typename FuncType> class Program
 	{
 	private:
 		llvm::LLVMContext _context;
@@ -123,7 +128,7 @@ namespace Calculon
 		typedef Lexer<Real> L;
 
 	public:
-		Function(const SymbolTable& symbols, const string& code, const string& signature):
+		Program(const SymbolTable& symbols, const string& code, const string& signature):
 				_symbols(symbols),
 				_funcptr(NULL)
 		{
@@ -131,14 +136,14 @@ namespace Calculon
 			init(stream, signature);
 		}
 
-		Function(const SymbolTable& symbols, std::istream& code, const string& signature):
+		Program(const SymbolTable& symbols, std::istream& code, const string& signature):
 				_symbols(symbols),
 				_funcptr(NULL)
 		{
 			init(code, signature);
 		}
 
-		~Function()
+		~Program()
 		{
 		}
 
@@ -153,133 +158,9 @@ namespace Calculon
 		}
 
 	private:
-		class Compiler
-		{
-		public:
-			Function& function;
-			llvm::LLVMContext& context;
-			llvm::IRBuilder<> builder;
-			llvm::Type* realType;
-			llvm::Type* vectorType;
-			llvm::Type* structType;
-
-		public:
-			Compiler(Function& function):
-				function(function),
-				context(function._context),
-				builder(context)
-			{
-				realType = createRealType((Real) 0.0);
-				vectorType = llvm::VectorType::get(realType, 4);
-				structType = llvm::StructType::get(
-						realType, realType, realType, NULL);
-			}
-
-			class SaveState
-			{
-				Compiler& _compiler;
-				llvm::BasicBlock* _bb;
-				llvm::BasicBlock::iterator _i;
-
-			public:
-				SaveState(Compiler& compiler):
-					_compiler(compiler),
-					_bb(compiler.builder.GetInsertBlock()),
-					_i(compiler.builder.GetInsertPoint())
-				{
-				}
-
-				~SaveState()
-				{
-					_compiler.builder.SetInsertPoint(_bb, _i);
-				}
-			};
-
-		private:
-			llvm::Type* createRealType(double)
-			{
-				return llvm::Type::getDoubleTy(context);
-			}
-
-			llvm::Type* createRealType(float)
-			{
-				return llvm::Type::getFloatTy(context);
-			}
-		};
-
-		class ASTNode
-		{
-			virtual llvm::Value* codegen(Compiler& compiler) = 0;
-		};
-
-		class ASTConstant : public ASTNode
-		{
-			Real _value;
-
-		public:
-			ASTConstant(Real value):
-				_value(value)
-			{
-			}
-
-			llvm::Value* codegen(Compiler& compiler)
-			{
-				return llvm::ConstantFP::get(compiler.context, llvm::APFloat(_value));
-			}
-		};
-
-		class ASTVector : public ASTNode
-		{
-			auto_ptr<ASTNode> _x;
-			auto_ptr<ASTNode> _y;
-			auto_ptr<ASTNode> _z;
-
-		public:
-			ASTVector(ASTNode* x, ASTNode* y, ASTNode* z):
-				_x(x), _y(y), _z(z)
-			{
-			}
-
-			llvm::Value* codegen(Compiler& compiler)
-			{
-
-			}
-		};
-
-		class ASTFunction : public ASTNode
-		{
-			auto_ptr<ASTNode> _definition;
-			auto_ptr<ASTNode> _body;
-			llvm::Function* _function;
-
-		public:
-			ASTFunction(llvm::Function* function, ASTNode* definition,
-					ASTNode* body):
-				_function(function),
-				_definition(definition),
-				_body(body)
-			{
-			}
-
-			llvm::Value* codegen(Compiler& compiler)
-			{
-				{
-					typename Compiler::SaveState state;
-
-					llvm::BasicBlock* toplevel = llvm::BasicBlock::Create(
-							compiler, "", _function);
-					compiler.SetInsertPoint(toplevel);
-
-					llvm::Value* v = _body->codegen(compiler);
-					compiler.builder.CreateRet(v);
-				}
-
-				return _body->codegen(compiler);
-			}
-		};
 
 	private:
-		void init(std::istream& code, const string& signature)
+		void init(std::istream& codestream, const string& signature)
 		{
 			_module = new llvm::Module("Calculon Function", _context);
 
@@ -292,6 +173,7 @@ namespace Calculon
 			if (!_engine)
 				throw CompilationException(s);
 
+#if 0
 			/* Parse the main function signature. */
 
 			vector< pair<string, char> > arguments;
@@ -304,6 +186,7 @@ namespace Calculon
 				parse_type_signature(lexer, arguments, returntype);
 				expect_eof(lexer);
 			}
+#endif
 
 			/* Create the toplevel function from this signature. */
 
@@ -319,11 +202,12 @@ namespace Calculon
 
 //			_builder.SetInsertPoint(_toplevel);
 
-			ASTConstant c(42);
+			Compiler<Real> compiler(_context);
 
-			Compiler compiler(*this);
-			compiler.builder.SetInsertPoint(_toplevel);
-			compiler.builder.CreateRet(c.codegen(compiler));
+			std::istringstream signaturestream(signature);
+			compiler.parse(signaturestream, codestream);
+//			compiler.builder.SetInsertPoint(_toplevel);
+//			compiler.builder.CreateRet(c.codegen(compiler));
 
 			generate_machine_code();
 		}
