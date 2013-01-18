@@ -5,7 +5,7 @@
 #undef NDEBUG
 #include "calculon.h"
 
-const char* code = "1";
+const char* code = "<1, 2, 3>";
 
 int main(int argc, const char* argv[])
 {

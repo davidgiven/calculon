@@ -47,6 +47,10 @@ public:
 	llvm::LLVMContext& context;
 	llvm::Module* module;
 	llvm::IRBuilder<> builder;
+	llvm::Type* intType;
+	llvm::Value* xindex;
+	llvm::Value* yindex;
+	llvm::Value* zindex;
 	llvm::Type* realType;
 	llvm::Type* vectorType;
 	llvm::Type* structType;
@@ -71,6 +75,10 @@ public:
 		module(module),
 		builder(context)
 	{
+		intType = llvm::IntegerType::get(context, 32);
+		xindex = llvm::ConstantInt::get(intType, 0);
+		xindex = llvm::ConstantInt::get(intType, 1);
+		xindex = llvm::ConstantInt::get(intType, 2);
 		realType = createRealType(context);
 		vectorType = llvm::VectorType::get(realType, 4);
 		structType = llvm::StructType::get(
@@ -129,6 +137,13 @@ private:
 		}
 	};
 
+	llvm::Value* check_real(llvm::Value* v)
+	{
+		if (v->getType() != realType)
+			throw CompilationException("type mismatch: expected a real");
+		return v;
+	}
+
 private:
 	class ASTFrame;
 	class ASTFunction;
@@ -154,6 +169,11 @@ private:
 		}
 
 		virtual llvm::Value* codegen(Compiler& compiler) = 0;
+
+		llvm::Value* codegen_to_real(Compiler& compiler)
+		{
+			return compiler.check_real(codegen(compiler));
+		}
 
 		virtual void visit(NodeVisitor& visitor)
 		{
@@ -191,7 +211,20 @@ private:
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
+			llvm::Value* v = llvm::UndefValue::get(compiler.vectorType);
 
+			llvm::Value* xv = x.codegen_to_real(compiler);
+			llvm::Value* yv = y.codegen_to_real(compiler);
+			llvm::Value* zv = z.codegen_to_real(compiler);
+
+			v = compiler.builder.CreateInsertElement(v, xv,
+					llvm::ConstantInt::get(compiler.intType, 0));
+			v = compiler.builder.CreateInsertElement(v, yv,
+					llvm::ConstantInt::get(compiler.intType, 1));
+			v = compiler.builder.CreateInsertElement(v, zv,
+					llvm::ConstantInt::get(compiler.intType, 2));
+
+			return v;
 		}
 
 		void visit(NodeVisitor& visitor)
@@ -404,10 +437,30 @@ private:
 				return node(new ASTConstant(value));
 			}
 
-			default:
-				lexer.error("expected an expression");
-				throw NULL; // do not return
+			case L::OPERATOR:
+			{
+				const string& id = lexer.id();
+				if (id == "<")
+					return parse_vector(lexer);
+				break;
+			}
 		}
+
+		lexer.error("expected an expression");
+		throw NULL; // do not return
+	}
+
+	ASTVector& parse_vector(L& lexer)
+	{
+		expect_operator(lexer, "<");
+		ASTNode& x = parse_leaf(lexer);
+		expect(lexer, L::COMMA);
+		ASTNode& y = parse_leaf(lexer);
+		expect(lexer, L::COMMA);
+		ASTNode& z = parse_leaf(lexer);
+		expect_operator(lexer, ">");
+
+		return node(new ASTVector(x, y, z));
 	}
 
 	ASTToplevel& parse_toplevel(L& lexer)
