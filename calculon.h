@@ -194,13 +194,13 @@ namespace Calculon
 
 			_function = llvm::Function::Create(ft,
 					llvm::Function::ExternalLinkage,
-					"Calculon Function", _module);
+					"Entrypoint", _module);
 
 			_toplevel = llvm::BasicBlock::Create(_context, "entry", _function);
 
 //			_builder.SetInsertPoint(_toplevel);
 
-			Compiler<Real> compiler(_context);
+			Compiler<Real> compiler(_context, _module);
 
 			std::istringstream signaturestream(signature);
 			compiler.compile(signaturestream, codestream);
