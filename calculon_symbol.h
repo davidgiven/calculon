@@ -5,7 +5,7 @@
 #error "Don't include this, include calculon.h instead."
 #endif
 
-class Symbol
+class Symbol : public Object
 {
 	string _name;
 
@@ -30,9 +30,38 @@ public:
 class VariableSymbol : public Symbol
 {
 	llvm::Value* _value;
+	char _type;
 
 public:
-	VariableSymbol(const string& name):
+	VariableSymbol(const string& name, char type):
+		Symbol(name),
+		_value(NULL),
+		_type(type)
+	{
+	}
+
+	void setValue(llvm::Value* value)
+	{
+		_value = value;
+	}
+
+	llvm::Value* value(llvm::Module* module)
+	{
+		return _value;
+	}
+
+	char type() const
+	{
+		return _type;
+	}
+};
+
+class FunctionSymbol : public Symbol
+{
+	llvm::Value* _value;
+
+public:
+	FunctionSymbol(const string& name):
 		Symbol(name),
 		_value(NULL)
 	{
@@ -49,7 +78,7 @@ public:
 	}
 };
 
-class SymbolTable
+class SymbolTable : public Object
 {
 	SymbolTable* _next;
 
@@ -78,19 +107,25 @@ public:
 
 class SingletonSymbolTable : public SymbolTable
 {
-	Symbol& _symbol;
+	Symbol* _symbol;
 
 public:
-	SingletonSymbolTable(SymbolTable& next, Symbol& symbol):
+	SingletonSymbolTable(SymbolTable& next):
 		SymbolTable(next),
-		_symbol(symbol)
+		_symbol(NULL)
 	{
+	}
+
+	void add(Symbol* symbol)
+	{
+		assert(_symbol == NULL);
+		_symbol = symbol;
 	}
 
 	Symbol* resolve(const string& name)
 	{
-		if (_symbol.name() == name)
-			return &_symbol;
+		if (_symbol && (_symbol->name() == name))
+			return _symbol;
 		return SymbolTable::resolve(name);
 	}
 };
@@ -110,9 +145,9 @@ public:
 	{
 	}
 
-	void add(const string& name, Symbol* symbol)
+	void add(Symbol* symbol)
 	{
-		_symbols[name] = symbol;
+		_symbols[symbol->name()] = symbol;
 	}
 
 	Symbol* resolve(const string& name)
@@ -121,31 +156,6 @@ public:
 		if (i == _symbols.end())
 			return SymbolTable::resolve(name);
 		return i->second;
-	}
-};
-
-template <class T>
-class SymbolHolder
-{
-	vector<T*> _storage;
-
-public:
-	~SymbolHolder()
-	{
-		for (unsigned i=0; i<_storage.size(); i++)
-			delete _storage[i];
-	}
-
-	void add(T* symbol)
-	{
-		auto_ptr<T> ptr(symbol); // make exception safe
-		_storage.push_back(symbol); // takes ownership
-		ptr.release();
-	}
-
-	T* operator[] (unsigned i) const
-	{
-		return _storage[i];
 	}
 };
 

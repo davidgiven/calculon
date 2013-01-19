@@ -41,7 +41,7 @@ protected:
 };
 
 template <typename Real>
-class Compiler : public CompilerBase<Real>
+class Compiler : public CompilerBase<Real>, Allocator
 {
 public:
 	llvm::LLVMContext& context;
@@ -59,10 +59,8 @@ private:
 	class ASTNode;
 	class ASTVariable;
 
-	typedef set<ASTNode*> Nodes;
-	Nodes _nodes;
-
 	typedef Lexer<Real> L;
+	typedef pair<string, char> Argument;
 
 	enum
 	{
@@ -74,23 +72,23 @@ private:
 	class TypeException : public CompilationException
 	{
 	public:
-		TypeException(const string& what, ASTNode& node):
-			CompilationException(node.position.formatError(what))
+		TypeException(const string& what, ASTNode* node):
+			CompilationException(node->position.formatError(what))
 		{
 		}
 	};
 
 	class SymbolException : public CompilationException
 	{
-		static string formatError(ASTVariable& node)
+		static string formatError(ASTVariable* node)
 		{
 			std::stringstream s;
-			s << "unresolved symbol '" << node.id << "'";
-			return node.position.formatError(s.str());
+			s << "unresolved symbol '" << node->id << "'";
+			return node->position.formatError(s.str());
 		}
 
 	public:
-		SymbolException(ASTVariable& node):
+		SymbolException(ASTVariable* node):
 			CompilationException(formatError(node))
 		{
 		}
@@ -112,21 +110,6 @@ public:
 				realType, realType, realType, NULL);
 	}
 
-	~Compiler()
-	{
-		for (typename Nodes::const_iterator i = _nodes.begin(),
-				e = _nodes.end(); i != e; i++)
-			delete *i;
-	}
-
-	template <class T> T& node(T* p)
-	{
-		auto_ptr<T> ptr(p); // ensure deletion on exception
-		_nodes.insert(p); // might throw
-		ptr.release();
-		return *p;
-	};
-
 private:
 	llvm::Type* get_type_from_char(char c)
 	{
@@ -141,7 +124,7 @@ private:
 public:
 	void compile(std::istream& signaturestream, std::istream& codestream)
 	{
-		vector< pair<string, char> > arguments;
+		vector<VariableSymbol*> arguments;
 		char returntype;
 
 		L signaturelexer(signaturestream);
@@ -151,23 +134,19 @@ public:
 		/* Create symbols and the LLVM type array for the function. */
 
 		MultipleSymbolTable symboltable;
-		SymbolHolder<VariableSymbol> symbols;
 		vector<llvm::Type*> llvmtypes;
 		for (int i=0; i<arguments.size(); i++)
 		{
-			const string& name = arguments[i].first;
-			char type = arguments[i].second;
-
-			symbols.add(new VariableSymbol(name));
-			symboltable.add(name, symbols[i]);
-			llvmtypes.push_back(get_type_from_char(type));
+			VariableSymbol* symbol = arguments[i];
+			symboltable.add(symbol);
+			llvmtypes.push_back(get_type_from_char(symbol->type()));
 		}
 
 		/* Compile the code to an AST. */
 
 		L codelexer(codestream);
-		ASTToplevel& ast = parse_toplevel(codelexer, symboltable);
-		ast.resolveVariables();
+		ASTToplevel* ast = parse_toplevel(codelexer, symboltable);
+		ast->resolveVariables(*this);
 
 		/* Create the LLVM function itself. */
 
@@ -186,10 +165,10 @@ public:
 					ee = f->arg_end(); ii != ee; ii++)
 			{
 				llvm::Value* v = ii;
-				VariableSymbol* symbol = symbols[i];
+				VariableSymbol* symbol = arguments[i];
 
 				v->setName(symbol->name());
-				symbols[i]->setValue(v);
+				symbol->setValue(v);
 				i++;
 			}
 		}
@@ -198,35 +177,14 @@ public:
 
 		llvm::BasicBlock* bb = llvm::BasicBlock::Create(context, "", f);
 		builder.SetInsertPoint(bb);
-		ast.codegen(*this);
+		ast->codegen(*this);
 	}
-
-private:
-	class SaveState
-	{
-		Compiler& _compiler;
-		llvm::BasicBlock* _bb;
-		llvm::BasicBlock::iterator _i;
-
-	public:
-		SaveState(Compiler& compiler):
-			_compiler(compiler),
-			_bb(compiler.builder.GetInsertBlock()),
-			_i(compiler.builder.GetInsertPoint())
-		{
-		}
-
-		~SaveState()
-		{
-			_compiler.builder.SetInsertPoint(_bb, _i);
-		}
-	};
 
 private:
 	class ASTFrame;
 	class ASTFunction;
 
-	struct ASTNode
+	struct ASTNode : public Object
 	{
 		ASTNode* parent;
 		Position position;
@@ -248,7 +206,7 @@ private:
 			llvm::Value* v = codegen(compiler);
 
 			if (v->getType() != compiler.realType)
-				throw TypeException("type mismatch: expected a real", *this);
+				throw TypeException("type mismatch: expected a real", this);
 			return v;
 		}
 
@@ -257,15 +215,15 @@ private:
 			llvm::Value* v = codegen(compiler);
 
 			if (v->getType() != compiler.vectorType)
-				throw TypeException("type mismatch: expected a vector", *this);
+				throw TypeException("type mismatch: expected a vector", this);
 			return v;
 		}
 
-		virtual void resolveVariables()
+		virtual void resolveVariables(Compiler& compiler)
 		{
 		}
 
-		virtual ASTFrame& getFrame()
+		virtual ASTFrame* getFrame()
 		{
 			return parent->getFrame();
 		}
@@ -301,12 +259,12 @@ private:
 		{
 		}
 
-		void resolveVariables()
+		void resolveVariables(Compiler& compiler)
 		{
-			SymbolTable& symbolTable = getFrame().getSymbolTable();
+			SymbolTable& symbolTable = getFrame()->getSymbolTable();
 			symbol = symbolTable.resolve(id);
 			if (!symbol)
-				throw SymbolException(*this);
+				throw SymbolException(this);
 		}
 
 		llvm::Value* codegen(Compiler& compiler)
@@ -317,24 +275,24 @@ private:
 
 	struct ASTVector : public ASTNode
 	{
-		ASTNode& x;
-		ASTNode& y;
-		ASTNode& z;
+		ASTNode* x;
+		ASTNode* y;
+		ASTNode* z;
 
-		ASTVector(const Position& position, ASTNode& x, ASTNode& y, ASTNode& z):
+		ASTVector(const Position& position, ASTNode* x, ASTNode* y, ASTNode* z):
 			ASTNode(position),
 			x(x), y(y), z(z)
 		{
-			x.parent = y.parent = z.parent = this;
+			x->parent = y->parent = z->parent = this;
 		}
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
 			llvm::Value* v = llvm::UndefValue::get(compiler.vectorType);
 
-			llvm::Value* xv = x.codegen_to_real(compiler);
-			llvm::Value* yv = y.codegen_to_real(compiler);
-			llvm::Value* zv = z.codegen_to_real(compiler);
+			llvm::Value* xv = x->codegen_to_real(compiler);
+			llvm::Value* yv = y->codegen_to_real(compiler);
+			llvm::Value* zv = z->codegen_to_real(compiler);
 
 			v = compiler.builder.CreateInsertElement(v, xv, compiler.xindex);
 			v = compiler.builder.CreateInsertElement(v, yv, compiler.yindex);
@@ -343,29 +301,29 @@ private:
 			return v;
 		}
 
-		void resolveVariables()
+		void resolveVariables(Compiler& compiler)
 		{
-			x.resolveVariables();
-			y.resolveVariables();
-			z.resolveVariables();
+			x->resolveVariables(compiler);
+			y->resolveVariables(compiler);
+			z->resolveVariables(compiler);
 		}
 	};
 
 	struct ASTExtract : public ASTNode
 	{
-		ASTNode& value;
+		ASTNode* value;
 		string id;
 
-		ASTExtract(const Position& position, ASTNode& value, const string& id):
+		ASTExtract(const Position& position, ASTNode* value, const string& id):
 			ASTNode(position),
 			value(value), id(id)
 		{
-			value.parent = this;
+			value->parent = this;
 		}
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
-			llvm::Value* v = value.codegen_to_vector(compiler);
+			llvm::Value* v = value->codegen_to_vector(compiler);
 
 			llvm::Value* element = NULL;
 			if (id == "x")
@@ -379,9 +337,9 @@ private:
 			return compiler.builder.CreateExtractElement(v, element);
 		}
 
-		void resolveVariables()
+		void resolveVariables(Compiler& compiler)
 		{
-			value.resolveVariables();
+			value->resolveVariables(compiler);
 		}
 	};
 
@@ -394,18 +352,18 @@ private:
 		{
 		}
 
-		ASTFrame& getFrame()
+		ASTFrame* getFrame()
 		{
-			return *this;
+			return this;
 		}
 
 		virtual SymbolTable& getSymbolTable() = 0;
 
-		ASTFrame& getParentFrame()
+		ASTFrame* getParentFrame()
 		{
 			if (parent)
 				return parent->getFrame();
-			return *this;
+			return this;
 		}
 	};
 
@@ -413,38 +371,41 @@ private:
 	{
 		string id;
 		char type;
-		ASTNode& value;
-		ASTNode& body;
+		ASTNode* value;
+		ASTNode* body;
 
-		VariableSymbol _symbol;
 		SingletonSymbolTable _symbolTable;
+		VariableSymbol* _symbol;
 		using ASTFrame::getParentFrame;
 		using ASTNode::parent;
 
 		ASTDefineVariable(const Position& position,
 				const string& id, char type,
-				ASTNode& value, ASTNode& body):
+				ASTNode* value, ASTNode* body):
 			ASTFrame(position),
 			id(id), value(value), body(body),
-			_symbol(id),
-			_symbolTable(getParentFrame().getSymbolTable(), _symbol)
+			_symbolTable(getParentFrame()->getSymbolTable()),
+			_symbol(NULL)
 		{
-			body.parent = this;
+			body->parent = this;
 		}
 
-		void resolveVariables()
+		void resolveVariables(Compiler& compiler)
 		{
-			value.parent = parent;
-			value.resolveVariables();
-			body.resolveVariables();
+			_symbol = compiler.retain(new VariableSymbol(id, type));
+			_symbolTable.add(_symbol);
+
+			value->parent = parent;
+			value->resolveVariables(compiler);
+			body->resolveVariables(compiler);
 		}
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
-			llvm::Value* v = value.codegen(compiler);
-			_symbol.setValue(v);
+			llvm::Value* v = value->codegen(compiler);
+			_symbol->setValue(v);
 
-			return body.codegen(compiler);
+			return body->codegen(compiler);
 		}
 
 		SymbolTable& getSymbolTable()
@@ -453,53 +414,82 @@ private:
 		}
 	};
 
-	struct ASTFunction : public ASTFrame
+	struct ASTFunctionBody : public ASTFrame
 	{
-		ASTNode& definition;
-		ASTNode& body;
-		llvm::Function* _function;
+		ASTNode* body;
 
 		MultipleSymbolTable _symbolTable;
 		using ASTFrame::getParentFrame;
 
-		ASTFunction(const Position& position, ASTNode& definition, ASTNode& body):
+		ASTFunctionBody(const Position& position, ASTNode* body):
+			ASTFrame(position),
+			body(body),
+			_symbolTable(getParentFrame()->getSymbolTable())
+		{
+			body->parent = this;
+		}
+
+		void resolveVariables(Compiler& compiler)
+		{
+			body->resolveVariables();
+		}
+	};
+
+	struct ASTDefineFunction : public ASTFrame
+	{
+		ASTNode* definition;
+		ASTNode* body;
+		llvm::Function* _function;
+
+		SingletonSymbolTable _symbolTable;
+		using ASTFrame::getParentFrame;
+
+		ASTDefineFunction(const Position& position, ASTNode* definition, ASTNode* body):
 			ASTFrame(position),
 			definition(definition),
 			body(body),
 			_function(NULL),
-			_symbolTable(getParentFrame().getSymbolTable())
+			_symbolTable(getParentFrame()->getSymbolTable())
 		{
-			definition.parent = body.parent = this;
+			definition->parent = body->parent = this;
 		}
 
-#if 0
-		void visit(NodeVisitor& visitor)
+		void resolveVariables(Compiler& compiler)
 		{
-			ASTFrame::visit(visitor);
-			visitor.visit(*this);
-			definition.visit(visitor);
-			body.visit(visitor);
+			definition->resolveVariables();
+			body->resolveVariables();
 		}
-#endif
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
 			/* Compile the function definition itself. */
 
 			{
-				typename Compiler::SaveState state;
+				llvm::BasicBlock* bb = compiler.builder.GetInsertBlock();
+				llvm::BasicBlock::iterator bi = compiler.builder.GetInsertPoint();
 
 #if 0
+#endif
+#if 0
+				llvm::FunctionType* ft = llvm::FunctionType::get(
+						compiler.get_type_from_char(returntype), llvmtypes, false);
+
+				llvm::Function* f = llvm::Function::Create(ft,
+						llvm::Function::InternalLinkage,
+						"", compiler.module);
+
 				llvm::BasicBlock* toplevel = llvm::BasicBlock::Create(
-						compiler, "", _function);
+						compiler, "", f);
 				compiler.SetInsertPoint(toplevel);
 #endif
 
-				llvm::Value* v = body.codegen(compiler);
+				llvm::Value* v = definition->codegen(compiler);
 				compiler.builder.CreateRet(v);
+
+				compiler.builder.SetInsertPoint(bb, bi);
 			}
 
-			return body.codegen(compiler);
+			return body->codegen(compiler);
 		}
 
 		SymbolTable& getSymbolTable()
@@ -510,28 +500,28 @@ private:
 
 	struct ASTToplevel : public ASTFrame
 	{
-		ASTNode& body;
+		ASTNode* body;
 
 		SymbolTable& _symbolTable;
 		using ASTFrame::getParentFrame;
 
-		ASTToplevel(const Position& position, ASTNode& body,
+		ASTToplevel(const Position& position, ASTNode* body,
 				SymbolTable& symboltable):
 			ASTFrame(position),
 			body(body),
 			_symbolTable(symboltable)
 		{
-			body.parent = this;
+			body->parent = this;
 		}
 
-		void resolveVariables()
+		void resolveVariables(Compiler& compiler)
 		{
-			body.resolveVariables();
+			body->resolveVariables(compiler);
 		}
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
-			llvm::Value* v = body.codegen(compiler);
+			llvm::Value* v = body->codegen(compiler);
 			compiler.builder.CreateRet(v);
 			return NULL;
 		}
@@ -621,7 +611,7 @@ private:
 		}
 	}
 
-	void parse_functionsignature(L& lexer, vector<pair<string, char> >& arguments,
+	void parse_functionsignature(L& lexer, vector<VariableSymbol*>& arguments,
 			char& returntype)
 	{
 		expect(lexer, L::OPENPAREN);
@@ -636,7 +626,8 @@ private:
 			if (lexer.token() == L::COLON)
 				parse_typespec(lexer, type);
 
-			arguments.push_back(pair<string, char>(id, type));
+			VariableSymbol* symbol = retain(new VariableSymbol(id, type));
+			arguments.push_back(symbol);
 			parse_list_separator(lexer);
 		}
 
@@ -644,16 +635,16 @@ private:
 		parse_typespec(lexer, returntype);
 	}
 
-	ASTVariable& parse_variable(L& lexer)
+	ASTVariable* parse_variable(L& lexer)
 	{
 		Position position = lexer.position();
 
 		string id;
 		parse_identifier(lexer, id);
-		return node(new ASTVariable(position, id));
+		return retain(new ASTVariable(position, id));
 	}
 
-	ASTNode& parse_leaf(L& lexer)
+	ASTNode* parse_leaf(L& lexer)
 	{
 		switch (lexer.token())
 		{
@@ -662,7 +653,7 @@ private:
 				Position position = lexer.position();
 				Real value = lexer.real();
 				lexer.next();
-				return node(new ASTConstant(position, value));
+				return retain(new ASTConstant(position, value));
 			}
 
 			case L::OPERATOR:
@@ -681,9 +672,9 @@ private:
 		throw (void*) NULL; // do not return
 	}
 
-	ASTNode& parse_tight(L& lexer)
+	ASTNode* parse_tight(L& lexer)
 	{
-		ASTNode& value = parse_leaf(lexer);
+		ASTNode* value = parse_leaf(lexer);
 
 		if (lexer.token() == L::DOT)
 		{
@@ -693,18 +684,18 @@ private:
 			string id;
 			parse_identifier(lexer, id);
 			if ((id == "x") || (id == "y") || (id == "z"))
-				return node(new ASTExtract(position, value, id));
+				return retain(new ASTExtract(position, value, id));
 		}
 
 		return value;
 	}
 
-	ASTNode& parse_expression(L& lexer)
+	ASTNode* parse_expression(L& lexer)
 	{
 		return parse_tight(lexer);
 	}
 
-	ASTFrame& parse_let(L& lexer)
+	ASTFrame* parse_let(L& lexer)
 	{
 		Position position = lexer.position();
 
@@ -717,33 +708,33 @@ private:
 		parse_typespec(lexer, returntype);
 
 		expect_operator(lexer, "=");
-		ASTNode& value = parse_expression(lexer);
+		ASTNode* value = parse_expression(lexer);
 		expect_operator(lexer, ";");
-		ASTNode& body = parse_expression(lexer);
-		return node(new ASTDefineVariable(position, id, returntype,
+		ASTNode* body = parse_expression(lexer);
+		return retain(new ASTDefineVariable(position, id, returntype,
 				value, body));
 	}
 
-	ASTVector& parse_vector(L& lexer)
+	ASTVector* parse_vector(L& lexer)
 	{
 		Position position = lexer.position();
 
 		expect_operator(lexer, "<");
-		ASTNode& x = parse_leaf(lexer);
+		ASTNode* x = parse_expression(lexer);
 		expect(lexer, L::COMMA);
-		ASTNode& y = parse_leaf(lexer);
+		ASTNode* y = parse_expression(lexer);
 		expect(lexer, L::COMMA);
-		ASTNode& z = parse_leaf(lexer);
+		ASTNode* z = parse_expression(lexer);
 		expect_operator(lexer, ">");
 
-		return node(new ASTVector(position, x, y, z));
+		return retain(new ASTVector(position, x, y, z));
 	}
 
-	ASTToplevel& parse_toplevel(L& lexer, SymbolTable& symboltable)
+	ASTToplevel* parse_toplevel(L& lexer, SymbolTable& symboltable)
 	{
 		Position position = lexer.position();
-		ASTNode& body = parse_tight(lexer);
-		return node(new ASTToplevel(position, body, symboltable));
+		ASTNode* body = parse_tight(lexer);
+		return retain(new ASTToplevel(position, body, symboltable));
 	}
 };
 

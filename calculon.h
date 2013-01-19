@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cctype>
 #include <memory>
+#include <boost/thread/tss.hpp>
 #include "llvm/DerivedTypes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JIT.h"
@@ -112,6 +113,7 @@ namespace Calculon
 	};
 #endif
 
+	#include "calculon_allocator.h"
 	#include "calculon_symbol.h"
 	#include "calculon_lexer.h"
 	#include "calculon_compiler.h"
