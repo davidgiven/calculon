@@ -2,7 +2,7 @@
 #define CALCULON_COMPILER_H
 
 #ifndef CALCULON_H
-#error Don't include this, include calculon.h instead.
+#error "Don't include this, include calculon.h instead."
 #endif
 
 template <typename Real>
@@ -57,6 +57,8 @@ public:
 
 private:
 	class ASTNode;
+	class ASTVariable;
+
 	typedef set<ASTNode*> Nodes;
 	Nodes _nodes;
 
@@ -78,6 +80,22 @@ private:
 		}
 	};
 
+	class SymbolException : public CompilationException
+	{
+		static string formatError(ASTVariable& node)
+		{
+			std::stringstream s;
+			s << "unresolved symbol '" << node.id << "'";
+			return node.position.formatError(s.str());
+		}
+
+	public:
+		SymbolException(ASTVariable& node):
+			CompilationException(formatError(node))
+		{
+		}
+	};
+
 public:
 	Compiler(llvm::LLVMContext& context, llvm::Module* module):
 		context(context),
@@ -86,8 +104,8 @@ public:
 	{
 		intType = llvm::IntegerType::get(context, 32);
 		xindex = llvm::ConstantInt::get(intType, 0);
-		xindex = llvm::ConstantInt::get(intType, 1);
-		xindex = llvm::ConstantInt::get(intType, 2);
+		yindex = llvm::ConstantInt::get(intType, 1);
+		zindex = llvm::ConstantInt::get(intType, 2);
 		realType = createRealType(context);
 		vectorType = llvm::VectorType::get(realType, 4);
 		structType = llvm::StructType::get(
@@ -116,11 +134,14 @@ public:
 		char returntype;
 
 		L signaturelexer(signaturestream);
-		parse_type_signature(signaturelexer, arguments, returntype);
+		parse_typesignature(signaturelexer, arguments, returntype);
 		expect_eof(signaturelexer);
 
+		MultipleSymbolTable symboltable;
+
 		L codelexer(codestream);
-		ASTToplevel& ast = parse_toplevel(codelexer);
+		ASTToplevel& ast = parse_toplevel(codelexer, symboltable);
+		ast.resolveVariables();
 
 		llvm::Function* f = static_cast<llvm::Function*>(ast.codegen(*this));
 	}
@@ -150,13 +171,6 @@ private:
 	class ASTFrame;
 	class ASTFunction;
 
-	struct NodeVisitor
-	{
-		virtual void visit(ASTNode& node) {}
-		virtual void visit(ASTFrame& frame) {}
-		virtual void visit(ASTFunction& function) {}
-	};
-
 	struct ASTNode
 	{
 		ASTNode* parent;
@@ -183,9 +197,22 @@ private:
 			return v;
 		}
 
-		virtual void visit(NodeVisitor& visitor)
+		llvm::Value* codegen_to_vector(Compiler& compiler)
 		{
-			visitor.visit(*this);
+			llvm::Value* v = codegen(compiler);
+
+			if (v->getType() != compiler.vectorType)
+				throw TypeException("type mismatch: expected a vector", *this);
+			return v;
+		}
+
+		virtual void resolveVariables()
+		{
+		}
+
+		virtual ASTFrame& getFrame()
+		{
+			return parent->getFrame();
 		}
 	};
 
@@ -203,6 +230,33 @@ private:
 		{
 			return llvm::ConstantFP::get(compiler.context,
 					llvm::APFloat(value));
+		}
+	};
+
+	struct ASTVariable : public ASTNode
+	{
+		string id;
+		Symbol* symbol;
+
+		using ASTNode::getFrame;
+
+		ASTVariable(const Position& position, const string& id):
+			ASTNode(position),
+			id(id), symbol(NULL)
+		{
+		}
+
+		void resolveVariables()
+		{
+			SymbolTable& symbolTable = getFrame().getSymbolTable();
+			symbol = symbolTable.resolve(id);
+			if (!symbol)
+				throw SymbolException(*this);
+		}
+
+		llvm::Value* codegen(Compiler& compiler)
+		{
+			return symbol->value(compiler.module);
 		}
 	};
 
@@ -227,37 +281,120 @@ private:
 			llvm::Value* yv = y.codegen_to_real(compiler);
 			llvm::Value* zv = z.codegen_to_real(compiler);
 
-			v = compiler.builder.CreateInsertElement(v, xv,
-					llvm::ConstantInt::get(compiler.intType, 0));
-			v = compiler.builder.CreateInsertElement(v, yv,
-					llvm::ConstantInt::get(compiler.intType, 1));
-			v = compiler.builder.CreateInsertElement(v, zv,
-					llvm::ConstantInt::get(compiler.intType, 2));
+			v = compiler.builder.CreateInsertElement(v, xv, compiler.xindex);
+			v = compiler.builder.CreateInsertElement(v, yv, compiler.yindex);
+			v = compiler.builder.CreateInsertElement(v, zv, compiler.zindex);
 
 			return v;
 		}
 
-		void visit(NodeVisitor& visitor)
+		void resolveVariables()
 		{
-			ASTNode::visit(visitor);
-			visitor.visit(*this);
-			x.visit(visitor);
-			y.visit(visitor);
-			z.visit(visitor);
+			x.resolveVariables();
+			y.resolveVariables();
+			z.resolveVariables();
+		}
+	};
+
+	struct ASTExtract : public ASTNode
+	{
+		ASTNode& value;
+		string id;
+
+		ASTExtract(const Position& position, ASTNode& value, const string& id):
+			ASTNode(position),
+			value(value), id(id)
+		{
+			value.parent = this;
+		}
+
+		llvm::Value* codegen(Compiler& compiler)
+		{
+			llvm::Value* v = value.codegen_to_vector(compiler);
+
+			llvm::Value* element = NULL;
+			if (id == "x")
+				element = compiler.xindex;
+			else if (id == "y")
+				element = compiler.yindex;
+			else if (id == "z")
+				element = compiler.zindex;
+			assert(element);
+
+			return compiler.builder.CreateExtractElement(v, element);
+		}
+
+		void resolveVariables()
+		{
+			value.resolveVariables();
 		}
 	};
 
 	struct ASTFrame : public ASTNode
 	{
+		using ASTNode::parent;
+
 		ASTFrame(const Position& position):
 			ASTNode(position)
 		{
 		}
 
-		void visit(NodeVisitor& visitor)
+		ASTFrame& getFrame()
 		{
-			ASTNode::visit(visitor);
-			visitor.visit(*this);
+			return *this;
+		}
+
+		virtual SymbolTable& getSymbolTable() = 0;
+
+		ASTFrame& getParentFrame()
+		{
+			if (parent)
+				return parent->getFrame();
+			return *this;
+		}
+	};
+
+	struct ASTDefineVariable : public ASTFrame
+	{
+		string id;
+		char type;
+		ASTNode& value;
+		ASTNode& body;
+
+		VariableSymbol _symbol;
+		SingletonSymbolTable _symbolTable;
+		using ASTFrame::getParentFrame;
+		using ASTNode::parent;
+
+		ASTDefineVariable(const Position& position,
+				const string& id, char type,
+				ASTNode& value, ASTNode& body):
+			ASTFrame(position),
+			id(id), value(value), body(body),
+			_symbol(id),
+			_symbolTable(getParentFrame().getSymbolTable(), _symbol)
+		{
+			body.parent = this;
+		}
+
+		void resolveVariables()
+		{
+			value.parent = parent;
+			value.resolveVariables();
+			body.resolveVariables();
+		}
+
+		llvm::Value* codegen(Compiler& compiler)
+		{
+			llvm::Value* v = value.codegen(compiler);
+			_symbol.setValue(v);
+
+			return body.codegen(compiler);
+		}
+
+		SymbolTable& getSymbolTable()
+		{
+			return _symbolTable;
 		}
 	};
 
@@ -267,15 +404,20 @@ private:
 		ASTNode& body;
 		llvm::Function* _function;
 
+		MultipleSymbolTable _symbolTable;
+		using ASTFrame::getParentFrame;
+
 		ASTFunction(const Position& position, ASTNode& definition, ASTNode& body):
 			ASTFrame(position),
 			definition(definition),
 			body(body),
-			_function(NULL)
+			_function(NULL),
+			_symbolTable(getParentFrame().getSymbolTable())
 		{
 			definition.parent = body.parent = this;
 		}
 
+#if 0
 		void visit(NodeVisitor& visitor)
 		{
 			ASTFrame::visit(visitor);
@@ -283,6 +425,7 @@ private:
 			definition.visit(visitor);
 			body.visit(visitor);
 		}
+#endif
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
@@ -303,24 +446,32 @@ private:
 
 			return body.codegen(compiler);
 		}
+
+		SymbolTable& getSymbolTable()
+		{
+			return _symbolTable;
+		}
 	};
 
 	struct ASTToplevel : public ASTFrame
 	{
 		ASTNode& body;
 
-		ASTToplevel(const Position& position, ASTNode& body):
+		SymbolTable& _symbolTable;
+		using ASTFrame::getParentFrame;
+
+		ASTToplevel(const Position& position, ASTNode& body,
+				SymbolTable& symboltable):
 			ASTFrame(position),
-			body(body)
+			body(body),
+			_symbolTable(symboltable)
 		{
 			body.parent = this;
 		}
 
-		void visit(NodeVisitor& visitor)
+		void resolveVariables()
 		{
-			ASTFrame::visit(visitor);
-			visitor.visit(*this);
-			body.visit(visitor);
+			body.resolveVariables();
 		}
 
 		llvm::Value* codegen(Compiler& compiler)
@@ -342,6 +493,11 @@ private:
 
 			return f;
 		}
+
+		SymbolTable& getSymbolTable()
+		{
+			return _symbolTable;
+		}
 	};
 
 private:
@@ -359,6 +515,13 @@ private:
 	void expect_operator(L& lexer, const string& s)
 	{
 		if ((lexer.token() != L::OPERATOR) || (lexer.id() != s))
+			lexer.error(string("expected '"+s+"'"));
+		lexer.next();
+	}
+
+	void expect_identifier(L& lexer, const string& s)
+	{
+		if ((lexer.token() != L::IDENTIFIER) || (lexer.id() != s))
 			lexer.error(string("expected '"+s+"'"));
 		lexer.next();
 	}
@@ -411,7 +574,7 @@ private:
 		lexer.next();
 	}
 
-	void parse_type_signature(L& lexer, vector<pair<string, char> >& arguments,
+	void parse_typesignature(L& lexer, vector<pair<string, char> >& arguments,
 			char& returntype)
 	{
 		expect(lexer, L::OPENPAREN);
@@ -433,36 +596,94 @@ private:
 		}
 
 		expect(lexer, L::CLOSEPAREN);
+		parse_returntype(lexer, returntype);
+	}
 
+	void parse_returntype(L& lexer, char& returntype)
+	{
 		returntype = REAL;
 		if (lexer.token() == L::COLON)
 			parse_typespec(lexer, returntype);
 	}
 
-	ASTNode& parse_leaf(L& lexer)
+	ASTVariable& parse_variable(L& lexer)
 	{
 		Position position = lexer.position();
 
+		string id;
+		parse_identifier(lexer, id);
+		return node(new ASTVariable(position, id));
+	}
+
+	ASTNode& parse_leaf(L& lexer)
+	{
 		switch (lexer.token())
 		{
 			case L::NUMBER:
 			{
+				Position position = lexer.position();
 				Real value = lexer.real();
 				lexer.next();
 				return node(new ASTConstant(position, value));
 			}
 
 			case L::OPERATOR:
+			case L::IDENTIFIER:
 			{
 				const string& id = lexer.id();
 				if (id == "<")
 					return parse_vector(lexer);
-				break;
+				else if (id == "let")
+					return parse_let(lexer);
+				return parse_variable(lexer);
 			}
 		}
 
 		lexer.error("expected an expression");
 		throw NULL; // do not return
+	}
+
+	ASTNode& parse_tight(L& lexer)
+	{
+		ASTNode& value = parse_leaf(lexer);
+
+		if (lexer.token() == L::DOT)
+		{
+			Position position = lexer.position();
+			expect(lexer, L::DOT);
+
+			string id;
+			parse_identifier(lexer, id);
+			if ((id == "x") || (id == "y") || (id == "z"))
+				return node(new ASTExtract(position, value, id));
+		}
+
+		return value;
+	}
+
+	ASTNode& parse_expression(L& lexer)
+	{
+		return parse_tight(lexer);
+	}
+
+	ASTFrame& parse_let(L& lexer)
+	{
+		Position position = lexer.position();
+
+		expect_identifier(lexer, "let");
+
+		string id;
+		parse_identifier(lexer, id);
+
+		char returntype;
+		parse_returntype(lexer, returntype);
+
+		expect_operator(lexer, "=");
+		ASTNode& value = parse_expression(lexer);
+		expect_operator(lexer, ";");
+		ASTNode& body = parse_expression(lexer);
+		return node(new ASTDefineVariable(position, id, returntype,
+				value, body));
 	}
 
 	ASTVector& parse_vector(L& lexer)
@@ -480,11 +701,11 @@ private:
 		return node(new ASTVector(position, x, y, z));
 	}
 
-	ASTToplevel& parse_toplevel(L& lexer)
+	ASTToplevel& parse_toplevel(L& lexer, SymbolTable& symboltable)
 	{
 		Position position = lexer.position();
-		ASTNode& body = parse_leaf(lexer);
-		return node(new ASTToplevel(position, body));
+		ASTNode& body = parse_tight(lexer);
+		return node(new ASTToplevel(position, body, symboltable));
 	}
 };
 

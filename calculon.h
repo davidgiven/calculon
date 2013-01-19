@@ -41,7 +41,7 @@ namespace Calculon
 		}
 	};
 
-
+#if 0
 	class SymbolTable
 	{
 		typedef void (*FuncPtr)();
@@ -110,9 +110,15 @@ namespace Calculon
 			add("sqrt", "F>F", sqrtf);
 		}
 	};
+#endif
 
+	#include "calculon_symbol.h"
 	#include "calculon_lexer.h"
 	#include "calculon_compiler.h"
+
+	class StandardSymbolTable : public SymbolTable
+	{
+	};
 
 	template <class Real, typename FuncType> class Program
 	{
@@ -164,12 +170,24 @@ namespace Calculon
 
 			llvm::InitializeNativeTarget();
 
+			llvm::TargetOptions options;
+			options.PrintMachineCode = true;
+			options.UnsafeFPMath = true;
+			options.RealignStack = true;
+			options.LessPreciseFPMADOption = true;
+			options.GuaranteedTailCallOpt = true;
+			options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
+
 			string s;
 			_engine = llvm::EngineBuilder(_module)
 				.setErrorStr(&s)
+				.setOptLevel(llvm::CodeGenOpt::Aggressive)
+				.setTargetOptions(options)
 				.create();
 			if (!_engine)
 				throw CompilationException(s);
+			_engine->DisableLazyCompilation();
+			_engine->DisableSymbolSearching();
 
 #if 0
 			/* Parse the main function signature. */

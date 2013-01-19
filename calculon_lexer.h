@@ -2,7 +2,7 @@
 #define CALCULON_LEXER_H
 
 #ifndef CALCULON_H
-#error Don't include this, include calculon.h instead.
+#error "Don't include this, include calculon.h instead."
 #endif
 
 struct Position
@@ -34,7 +34,8 @@ public:
 		OPENPAREN,
 		CLOSEPAREN,
 		COMMA,
-		COLON
+		COLON,
+		DOT
 	};
 
 	class LexerException : public CompilationException
@@ -221,6 +222,8 @@ private:
 			_token = COLON;
 		else if (_idValue == ",")
 			_token = COMMA;
+		else if (_idValue == ".")
+			_token = DOT;
 		else
 			_token = OPERATOR;
 	}
