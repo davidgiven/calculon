@@ -110,8 +110,7 @@ public:
 				realType, realType, realType, NULL);
 	}
 
-private:
-	llvm::Type* get_type_from_char(char c)
+	llvm::Type* getInternalType(char c)
 	{
 		switch (c)
 		{
@@ -121,8 +120,64 @@ private:
 		assert(false);
 	}
 
+	llvm::Type* getExternalType(char c)
+	{
+		switch (c)
+		{
+			case REAL: return realType;
+			case VECTOR: return structType;
+		}
+		assert(false);
+	}
+
+	llvm::Value* convertInternalToExternal(llvm::Value* v, char type)
+	{
+		switch (type)
+		{
+			case REAL:
+				return v;
+
+			case VECTOR:
+			{
+				llvm::Value* xv = builder.CreateExtractElement(v, xindex);
+				llvm::Value* yv = builder.CreateExtractElement(v, yindex);
+				llvm::Value* zv = builder.CreateExtractElement(v, zindex);
+
+				v = llvm::UndefValue::get(structType);
+				v = builder.CreateInsertValue(v, xv, 0);
+				v = builder.CreateInsertValue(v, yv, 1);
+				v = builder.CreateInsertValue(v, zv, 2);
+				return v;
+			}
+		}
+		assert(false);
+	}
+
+	llvm::Value* convertExternalToInternal(llvm::Value* v, char type)
+	{
+		switch (type)
+		{
+			case REAL:
+				return v;
+
+			case VECTOR:
+			{
+				llvm::Value* xv = builder.CreateExtractValue(v, 0);
+				llvm::Value* yv = builder.CreateExtractValue(v, 1);
+				llvm::Value* zv = builder.CreateExtractValue(v, 2);
+
+				v = llvm::UndefValue::get(vectorType);
+				v = builder.CreateInsertElement(v, xv, xindex);
+				v = builder.CreateInsertElement(v, yv, yindex);
+				v = builder.CreateInsertElement(v, zv, zindex);
+				return v;
+			}
+		}
+		assert(false);
+	}
+
 public:
-	void compile(std::istream& signaturestream, std::istream& codestream)
+	FunctionSymbol* compile(std::istream& signaturestream, std::istream& codestream)
 	{
 		vector<VariableSymbol*> arguments;
 		char returntype;
@@ -130,6 +185,9 @@ public:
 		L signaturelexer(signaturestream);
 		parse_functionsignature(signaturelexer, arguments, returntype);
 		expect_eof(signaturelexer);
+
+		FunctionSymbol* symbol = retain(new FunctionSymbol("<toplevel>",
+				arguments, returntype));
 
 		/* Create symbols and the LLVM type array for the function. */
 
@@ -139,7 +197,7 @@ public:
 		{
 			VariableSymbol* symbol = arguments[i];
 			symboltable.add(symbol);
-			llvmtypes.push_back(get_type_from_char(symbol->type()));
+			llvmtypes.push_back(getInternalType(symbol->type()));
 		}
 
 		/* Compile the code to an AST. */
@@ -151,11 +209,12 @@ public:
 		/* Create the LLVM function itself. */
 
 		llvm::FunctionType* ft = llvm::FunctionType::get(
-				get_type_from_char(returntype), llvmtypes, false);
+				getInternalType(returntype), llvmtypes, false);
 
 		llvm::Function* f = llvm::Function::Create(ft,
 				llvm::Function::InternalLinkage,
 				"toplevel", module);
+		symbol->setValue(f);
 
 		/* Bind the argument symbols to their LLVM values. */
 
@@ -178,6 +237,8 @@ public:
 		llvm::BasicBlock* bb = llvm::BasicBlock::Create(context, "", f);
 		builder.SetInsertPoint(bb);
 		ast->codegen(*this);
+
+		return symbol;
 	}
 
 private:
@@ -443,10 +504,10 @@ private:
 			for (int i=0; i<arguments.size(); i++)
 			{
 				VariableSymbol* symbol = arguments[i];
-				llvmtypes.push_back(compiler.get_type_from_char(symbol->type()));
+				llvmtypes.push_back(compiler.getInternalType(symbol->type()));
 			}
 
-			llvm::Type* returntype = compiler.get_type_from_char(function->returntype());
+			llvm::Type* returntype = compiler.getInternalType(function->returntype());
 			llvm::FunctionType* ft = llvm::FunctionType::get(
 					returntype, llvmtypes, false);
 

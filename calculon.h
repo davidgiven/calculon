@@ -23,6 +23,7 @@
 #include "llvm/DataLayout.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 namespace Calculon
 {
@@ -130,7 +131,6 @@ namespace Calculon
 		llvm::Module* _module;
 		llvm::ExecutionEngine* _engine;
 		llvm::Function* _function;
-		llvm::BasicBlock* _toplevel;
 		FuncType* _funcptr;
 
 	public:
@@ -191,43 +191,65 @@ namespace Calculon
 			_engine->DisableLazyCompilation();
 			_engine->DisableSymbolSearching();
 
-#if 0
-			/* Parse the main function signature. */
+			Compiler<Real> compiler(_context, _module);
 
-			vector< pair<string, char> > arguments;
-			char returntype;
+			/* Compile the program. */
 
+			std::istringstream signaturestream(signature);
+			FunctionSymbol* f = compiler.compile(signaturestream, codestream);
+
+			/* Create the interface function from this signature. */
+
+			vector<VariableSymbol*>& arguments = f->arguments();
+			vector<llvm::Type*> externaltypes;
+			for (int i=0; i<arguments.size(); i++)
 			{
-				std::istringstream signaturestream(signature);
-				L lexer(signaturestream);
-
-				parse_type_signature(lexer, arguments, returntype);
-				expect_eof(lexer);
+				VariableSymbol* symbol = arguments[i];
+				externaltypes.push_back(compiler.getExternalType(symbol->type()));
 			}
-#endif
-
-			/* Create the toplevel function from this signature. */
 
 			llvm::FunctionType* ft = llvm::FunctionType::get(
-					llvm::Type::getVoidTy(_context),
-					false);
+					compiler.getExternalType(f->returntype()),
+					externaltypes, false);
 
 			_function = llvm::Function::Create(ft,
 					llvm::Function::ExternalLinkage,
 					"Entrypoint", _module);
 
-			_toplevel = llvm::BasicBlock::Create(_context, "entry", _function);
+			llvm::BasicBlock* bb = llvm::BasicBlock::Create(_context, "entry", _function);
+			compiler.builder.SetInsertPoint(bb);
 
-//			_builder.SetInsertPoint(_toplevel);
+			/* Marshal the external types to the internal types. */
 
-			Compiler<Real> compiler(_context, _module);
+			vector<llvm::Value*> params;
 
-			std::istringstream signaturestream(signature);
-			compiler.compile(signaturestream, codestream);
-//			compiler.builder.SetInsertPoint(_toplevel);
-//			compiler.builder.CreateRet(c.codegen(compiler));
+			{
+				int i = 0;
+				for (llvm::Function::arg_iterator ii = _function->arg_begin(),
+						ee = _function->arg_end(); ii != ee; ii++)
+				{
+					llvm::Value* v = ii;
+					VariableSymbol* symbol = arguments[i];
 
-//			generate_machine_code();
+					v->setName(symbol->name());
+					params.push_back(compiler.convertExternalToInternal(
+							v, symbol->type()));
+
+					i++;
+				}
+			}
+
+			/* Call the internal function. */
+
+			llvm::Value* retval = compiler.builder.CreateCall(
+					(llvm::Function*) f->value(_module), params);
+
+			retval = compiler.convertInternalToExternal(retval,
+					f->returntype());
+
+			compiler.builder.CreateRet(retval);
+
+			generate_machine_code();
 		}
 
 	private:
@@ -235,26 +257,35 @@ namespace Calculon
 		void generate_machine_code()
 		{
 			llvm::FunctionPassManager fpm(_module);
+			llvm::PassManager mpm;
+			llvm::PassManagerBuilder pmb;
+			pmb.OptLevel = 3;
+			pmb.populateFunctionPassManager(fpm);
+			pmb.populateModulePassManager(mpm);
 
+#if 0
 			// Set up the optimizer pipeline.  Start with registering info about how the
 			// target lays out data structures.
 			fpm.add(new llvm::DataLayout(*_engine->getDataLayout()));
 			// Provide basic AliasAnalysis support for GVN.
 			fpm.add(llvm::createBasicAliasAnalysisPass());
 			// Do simple "peephole" optimizations and bit-twiddling optzns.
-//			fpm.add(llvm::createInstructionCombiningPass());
+			fpm.add(llvm::createInstructionCombiningPass());
 			// Reassociate expressions.
-//			fpm.add(llvm::createReassociatePass());
+			fpm.add(llvm::createReassociatePass());
 			// Eliminate Common SubExpressions.
-//			fpm.add(llvm::createGVNPass());
+			fpm.add(llvm::createGVNPass());
 			// Simplify the control flow graph (deleting unreachable blocks, etc).
-//			fpm.add(llvm::createCFGSimplificationPass());
+			fpm.add(llvm::createCFGSimplificationPass());
+#endif
 
 			fpm.doInitialization();
 			llvm::verifyFunction(*_function);
 			fpm.run(*_function);
+			mpm.run(*_module);
 
 			_funcptr = (FuncType*) _engine->getPointerToFunction(_function);
+			assert(_funcptr);
 		}
 	};
 }
