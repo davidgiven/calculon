@@ -110,12 +110,42 @@ public:
 	{
 	}
 
+	void add(const string& name, Symbol* symbol)
+	{
+		_symbols[name] = symbol;
+	}
+
 	Symbol* resolve(const string& name)
 	{
 		Symbols::const_iterator i = _symbols.find(name);
 		if (i == _symbols.end())
 			return SymbolTable::resolve(name);
 		return i->second;
+	}
+};
+
+template <class T>
+class SymbolHolder
+{
+	vector<T*> _storage;
+
+public:
+	~SymbolHolder()
+	{
+		for (unsigned i=0; i<_storage.size(); i++)
+			delete _storage[i];
+	}
+
+	void add(T* symbol)
+	{
+		auto_ptr<T> ptr(symbol); // make exception safe
+		_storage.push_back(symbol); // takes ownership
+		ptr.release();
+	}
+
+	T* operator[] (unsigned i) const
+	{
+		return _storage[i];
 	}
 };
 

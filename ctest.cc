@@ -5,7 +5,7 @@
 #undef NDEBUG
 #include "calculon.h"
 
-const char* code = "let x = <1,2,3>; x";
+const char* code = "<x,y,z>";
 
 int main(int argc, const char* argv[])
 {
@@ -14,7 +14,7 @@ int main(int argc, const char* argv[])
 	Calculon::StandardSymbolTable symbols;
 
 	typedef Number TestFunc();
-	Calculon::Program<Number, TestFunc> func(symbols, code, "(x, y)");
+	Calculon::Program<Number, TestFunc> func(symbols, code, "(x,y,z): vector");
 	std::cout << "size of Program object: " << sizeof(func) << "\n";
 	func.dump();
 

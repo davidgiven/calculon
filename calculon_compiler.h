@@ -127,6 +127,17 @@ public:
 		return *p;
 	};
 
+private:
+	llvm::Type* get_type_from_char(char c)
+	{
+		switch (c)
+		{
+			case REAL: return realType;
+			case VECTOR: return vectorType;
+		}
+		assert(false);
+	}
+
 public:
 	void compile(std::istream& signaturestream, std::istream& codestream)
 	{
@@ -134,16 +145,60 @@ public:
 		char returntype;
 
 		L signaturelexer(signaturestream);
-		parse_typesignature(signaturelexer, arguments, returntype);
+		parse_functionsignature(signaturelexer, arguments, returntype);
 		expect_eof(signaturelexer);
 
+		/* Create symbols and the LLVM type array for the function. */
+
 		MultipleSymbolTable symboltable;
+		SymbolHolder<VariableSymbol> symbols;
+		vector<llvm::Type*> llvmtypes;
+		for (int i=0; i<arguments.size(); i++)
+		{
+			const string& name = arguments[i].first;
+			char type = arguments[i].second;
+
+			symbols.add(new VariableSymbol(name));
+			symboltable.add(name, symbols[i]);
+			llvmtypes.push_back(get_type_from_char(type));
+		}
+
+		/* Compile the code to an AST. */
 
 		L codelexer(codestream);
 		ASTToplevel& ast = parse_toplevel(codelexer, symboltable);
 		ast.resolveVariables();
 
-		llvm::Function* f = static_cast<llvm::Function*>(ast.codegen(*this));
+		/* Create the LLVM function itself. */
+
+		llvm::FunctionType* ft = llvm::FunctionType::get(
+				get_type_from_char(returntype), llvmtypes, false);
+
+		llvm::Function* f = llvm::Function::Create(ft,
+				llvm::Function::InternalLinkage,
+				"toplevel", module);
+
+		/* Bind the argument symbols to their LLVM values. */
+
+		{
+			int i = 0;
+			for (llvm::Function::arg_iterator ii = f->arg_begin(),
+					ee = f->arg_end(); ii != ee; ii++)
+			{
+				llvm::Value* v = ii;
+				VariableSymbol* symbol = symbols[i];
+
+				v->setName(symbol->name());
+				symbols[i]->setValue(v);
+				i++;
+			}
+		}
+
+		/* Generate the IR code. */
+
+		llvm::BasicBlock* bb = llvm::BasicBlock::Create(context, "", f);
+		builder.SetInsertPoint(bb);
+		ast.codegen(*this);
 	}
 
 private:
@@ -476,22 +531,9 @@ private:
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
-			llvm::FunctionType* ft = llvm::FunctionType::get(
-					llvm::Type::getVoidTy(compiler.context),
-					false);
-
-			llvm::Function* f = llvm::Function::Create(ft,
-					llvm::Function::InternalLinkage,
-					"toplevel", compiler.module);
-
-			llvm::BasicBlock* bb = llvm::BasicBlock::Create(compiler.context,
-					"", f);
-
-			compiler.builder.SetInsertPoint(bb);
 			llvm::Value* v = body.codegen(compiler);
 			compiler.builder.CreateRet(v);
-
-			return f;
+			return NULL;
 		}
 
 		SymbolTable& getSymbolTable()
@@ -559,30 +601,33 @@ private:
 
 	void parse_typespec(L& lexer, char& type)
 	{
-		expect(lexer, L::COLON);
-
-		if (lexer.token() != L::IDENTIFIER)
-			lexer.error("expected a type name");
-
-		if (lexer.id() == "vector")
-			type = VECTOR;
-		else if (lexer.id() == "real")
+		if (lexer.token() != L::COLON)
 			type = REAL;
 		else
-			lexer.error("expected a type name");
+		{
+			expect(lexer, L::COLON);
 
-		lexer.next();
+			if (lexer.token() != L::IDENTIFIER)
+				lexer.error("expected a type name");
+
+			if (lexer.id() == "vector")
+				type = VECTOR;
+			else if (lexer.id() == "real")
+				type = REAL;
+			else
+				lexer.error("expected a type name");
+
+			lexer.next();
+		}
 	}
 
-	void parse_typesignature(L& lexer, vector<pair<string, char> >& arguments,
+	void parse_functionsignature(L& lexer, vector<pair<string, char> >& arguments,
 			char& returntype)
 	{
 		expect(lexer, L::OPENPAREN);
 
 		while (lexer.token() != L::CLOSEPAREN)
 		{
-			std::cerr << "token " << lexer.token() << "\n";
-
 			string id;
 			char type = REAL;
 
@@ -596,14 +641,7 @@ private:
 		}
 
 		expect(lexer, L::CLOSEPAREN);
-		parse_returntype(lexer, returntype);
-	}
-
-	void parse_returntype(L& lexer, char& returntype)
-	{
-		returntype = REAL;
-		if (lexer.token() == L::COLON)
-			parse_typespec(lexer, returntype);
+		parse_typespec(lexer, returntype);
 	}
 
 	ASTVariable& parse_variable(L& lexer)
@@ -640,7 +678,7 @@ private:
 		}
 
 		lexer.error("expected an expression");
-		throw NULL; // do not return
+		throw (void*) NULL; // do not return
 	}
 
 	ASTNode& parse_tight(L& lexer)
@@ -676,7 +714,7 @@ private:
 		parse_identifier(lexer, id);
 
 		char returntype;
-		parse_returntype(lexer, returntype);
+		parse_typespec(lexer, returntype);
 
 		expect_operator(lexer, "=");
 		ASTNode& value = parse_expression(lexer);
