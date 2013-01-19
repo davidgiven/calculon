@@ -1,11 +1,10 @@
 #include <stdlib.h>
 #include <iostream>
+#include <fstream>
 #include <math.h>
 
 #undef NDEBUG
 #include "calculon.h"
-
-const char* code = "<1,2,3>";
 
 int main(int argc, const char* argv[])
 {
@@ -14,7 +13,8 @@ int main(int argc, const char* argv[])
 	Calculon::StandardSymbolTable symbols;
 
 	typedef Number TestFunc();
-	Calculon::Program<Number, TestFunc> func(symbols, code, "(v:vector): vector");
+	std::ifstream code("test.cal");
+	Calculon::Program<Number, TestFunc> func(symbols, code, "()");
 	std::cout << "size of Program object: " << sizeof(func) << "\n";
 	func.dump();
 

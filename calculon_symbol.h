@@ -24,6 +24,11 @@ public:
 		return _name;
 	}
 
+	virtual bool isFunction() const
+	{
+		return false;
+	}
+
 	virtual llvm::Value* value(llvm::Module* module) = 0;
 };
 
@@ -58,16 +63,26 @@ public:
 
 class FunctionSymbol : public Symbol
 {
-	llvm::Value* _value;
+	llvm::Function* _value;
+	vector<VariableSymbol*> _arguments;
+	char _returntype;
 
 public:
-	FunctionSymbol(const string& name):
+	FunctionSymbol(const string& name, const vector<VariableSymbol*>& arguments,
+			char returntype):
 		Symbol(name),
-		_value(NULL)
+		_value(NULL),
+		_arguments(arguments),
+		_returntype(returntype)
 	{
 	}
 
-	void setValue(llvm::Value* value)
+	bool isFunction() const
+	{
+		return true;
+	}
+
+	void setValue(llvm::Function* value)
 	{
 		_value = value;
 	}
@@ -75,6 +90,16 @@ public:
 	llvm::Value* value(llvm::Module* module)
 	{
 		return _value;
+	}
+
+	vector<VariableSymbol*>& arguments()
+	{
+		return _arguments;
+	}
+
+	char returntype()
+	{
+		return _returntype;
 	}
 };
 
@@ -88,14 +113,16 @@ public:
 	{
 	}
 
-	SymbolTable(SymbolTable& next):
-		_next(&next)
+	SymbolTable(SymbolTable* next):
+		_next(next)
 	{
 	}
 
 	virtual ~SymbolTable()
 	{
 	}
+
+	virtual void add(Symbol* symbol) = 0;
 
 	virtual Symbol* resolve(const string& name)
 	{
@@ -110,7 +137,7 @@ class SingletonSymbolTable : public SymbolTable
 	Symbol* _symbol;
 
 public:
-	SingletonSymbolTable(SymbolTable& next):
+	SingletonSymbolTable(SymbolTable* next):
 		SymbolTable(next),
 		_symbol(NULL)
 	{
@@ -140,7 +167,7 @@ public:
 	{
 	}
 
-	MultipleSymbolTable(SymbolTable& next):
+	MultipleSymbolTable(SymbolTable* next):
 		SymbolTable(next)
 	{
 	}

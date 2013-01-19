@@ -80,16 +80,16 @@ private:
 
 	class SymbolException : public CompilationException
 	{
-		static string formatError(ASTVariable* node)
+		static string formatError(const string& id, ASTNode* node)
 		{
 			std::stringstream s;
-			s << "unresolved symbol '" << node->id << "'";
+			s << "unresolved symbol '" << id << "'";
 			return node->position.formatError(s.str());
 		}
 
 	public:
-		SymbolException(ASTVariable* node):
-			CompilationException(formatError(node))
+		SymbolException(const string& id, ASTNode* node):
+			CompilationException(formatError(id, node))
 		{
 		}
 	};
@@ -145,7 +145,7 @@ public:
 		/* Compile the code to an AST. */
 
 		L codelexer(codestream);
-		ASTToplevel* ast = parse_toplevel(codelexer, symboltable);
+		ASTToplevel* ast = parse_toplevel(codelexer, &symboltable);
 		ast->resolveVariables(*this);
 
 		/* Create the LLVM function itself. */
@@ -261,10 +261,10 @@ private:
 
 		void resolveVariables(Compiler& compiler)
 		{
-			SymbolTable& symbolTable = getFrame()->getSymbolTable();
-			symbol = symbolTable.resolve(id);
+			SymbolTable* symbolTable = getFrame()->symbolTable;
+			symbol = symbolTable->resolve(id);
 			if (!symbol)
-				throw SymbolException(this);
+				throw SymbolException(id, this);
 		}
 
 		llvm::Value* codegen(Compiler& compiler)
@@ -345,24 +345,18 @@ private:
 
 	struct ASTFrame : public ASTNode
 	{
+		SymbolTable* symbolTable;
+
 		using ASTNode::parent;
 
 		ASTFrame(const Position& position):
-			ASTNode(position)
+			ASTNode(position),
+			symbolTable(NULL)
 		{
 		}
 
 		ASTFrame* getFrame()
 		{
-			return this;
-		}
-
-		virtual SymbolTable& getSymbolTable() = 0;
-
-		ASTFrame* getParentFrame()
-		{
-			if (parent)
-				return parent->getFrame();
 			return this;
 		}
 	};
@@ -374,9 +368,8 @@ private:
 		ASTNode* value;
 		ASTNode* body;
 
-		SingletonSymbolTable _symbolTable;
 		VariableSymbol* _symbol;
-		using ASTFrame::getParentFrame;
+		using ASTFrame::symbolTable;
 		using ASTNode::parent;
 
 		ASTDefineVariable(const Position& position,
@@ -384,7 +377,6 @@ private:
 				ASTNode* value, ASTNode* body):
 			ASTFrame(position),
 			id(id), value(value), body(body),
-			_symbolTable(getParentFrame()->getSymbolTable()),
 			_symbol(NULL)
 		{
 			body->parent = this;
@@ -392,8 +384,10 @@ private:
 
 		void resolveVariables(Compiler& compiler)
 		{
+			symbolTable = compiler.retain(new SingletonSymbolTable(
+					parent->getFrame()->symbolTable));
 			_symbol = compiler.retain(new VariableSymbol(id, type));
-			_symbolTable.add(_symbol);
+			symbolTable->add(_symbol);
 
 			value->parent = parent;
 			value->resolveVariables(compiler);
@@ -407,94 +401,188 @@ private:
 
 			return body->codegen(compiler);
 		}
-
-		SymbolTable& getSymbolTable()
-		{
-			return _symbolTable;
-		}
 	};
 
 	struct ASTFunctionBody : public ASTFrame
 	{
+		FunctionSymbol* function;
 		ASTNode* body;
 
-		MultipleSymbolTable _symbolTable;
-		using ASTFrame::getParentFrame;
+		using ASTNode::parent;
+		using ASTFrame::symbolTable;
 
-		ASTFunctionBody(const Position& position, ASTNode* body):
+		ASTFunctionBody(const Position& position,
+				FunctionSymbol* function, ASTNode* body):
 			ASTFrame(position),
-			body(body),
-			_symbolTable(getParentFrame()->getSymbolTable())
+			function(function), body(body)
 		{
 			body->parent = this;
 		}
 
 		void resolveVariables(Compiler& compiler)
 		{
-			body->resolveVariables();
+			symbolTable = compiler.retain(new MultipleSymbolTable(
+					parent->getFrame()->symbolTable));
+
+			vector<VariableSymbol*>& arguments = function->arguments();
+			for (vector<VariableSymbol*>::const_iterator i = arguments.begin(),
+					e = arguments.end(); i != e; i++)
+			{
+				symbolTable->add(*i);
+			}
+
+			body->resolveVariables(compiler);
+		}
+
+		llvm::Value* codegen(Compiler& compiler)
+		{
+			/* Create the LLVM function type. */
+
+			vector<VariableSymbol*>& arguments = function->arguments();
+			vector<llvm::Type*> llvmtypes;
+			for (int i=0; i<arguments.size(); i++)
+			{
+				VariableSymbol* symbol = arguments[i];
+				llvmtypes.push_back(compiler.get_type_from_char(symbol->type()));
+			}
+
+			llvm::Type* returntype = compiler.get_type_from_char(function->returntype());
+			llvm::FunctionType* ft = llvm::FunctionType::get(
+					returntype, llvmtypes, false);
+
+			/* Create the function. */
+
+			llvm::Function* f = llvm::Function::Create(ft,
+					llvm::Function::InternalLinkage,
+					function->name(), compiler.module);
+			function->setValue(f);
+
+			/* Bind the argument symbols to their LLVM values. */
+
+			{
+				int i = 0;
+				for (llvm::Function::arg_iterator ii = f->arg_begin(),
+						ee = f->arg_end(); ii != ee; ii++)
+				{
+					llvm::Value* v = ii;
+					VariableSymbol* symbol = arguments[i];
+
+					v->setName(symbol->name());
+					symbol->setValue(v);
+					i++;
+				}
+			}
+
+			/* Generate the code. */
+
+			llvm::BasicBlock* toplevel = llvm::BasicBlock::Create(
+					compiler.context, "", f);
+
+			llvm::BasicBlock* bb = compiler.builder.GetInsertBlock();
+			llvm::BasicBlock::iterator bi = compiler.builder.GetInsertPoint();
+			compiler.builder.SetInsertPoint(toplevel);
+
+			llvm::Value* v = body->codegen(compiler);
+			compiler.builder.CreateRet(v);
+			if (v->getType() != returntype)
+				throw TypeException(
+						"function does not return the type it's declared to return", this);
+
+			compiler.builder.SetInsertPoint(bb, bi);
+
+			return f;
 		}
 	};
 
 	struct ASTDefineFunction : public ASTFrame
 	{
+		FunctionSymbol* function;
 		ASTNode* definition;
 		ASTNode* body;
-		llvm::Function* _function;
 
-		SingletonSymbolTable _symbolTable;
-		using ASTFrame::getParentFrame;
+		using ASTNode::parent;
+		using ASTFrame::symbolTable;
 
-		ASTDefineFunction(const Position& position, ASTNode* definition, ASTNode* body):
+		ASTDefineFunction(const Position& position, FunctionSymbol* function,
+				ASTNode* definition, ASTNode* body):
 			ASTFrame(position),
-			definition(definition),
-			body(body),
-			_function(NULL),
-			_symbolTable(getParentFrame()->getSymbolTable())
+			function(function), definition(definition), body(body)
 		{
 			definition->parent = body->parent = this;
 		}
 
 		void resolveVariables(Compiler& compiler)
 		{
-			definition->resolveVariables();
-			body->resolveVariables();
+			symbolTable = compiler.retain(new SingletonSymbolTable(
+					parent->getFrame()->symbolTable));
+			symbolTable->add(function);
+
+			definition->resolveVariables(compiler);
+			body->resolveVariables(compiler);
 		}
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
-			/* Compile the function definition itself. */
-
-			{
-				llvm::BasicBlock* bb = compiler.builder.GetInsertBlock();
-				llvm::BasicBlock::iterator bi = compiler.builder.GetInsertPoint();
-
-#if 0
-#endif
-#if 0
-				llvm::FunctionType* ft = llvm::FunctionType::get(
-						compiler.get_type_from_char(returntype), llvmtypes, false);
-
-				llvm::Function* f = llvm::Function::Create(ft,
-						llvm::Function::InternalLinkage,
-						"", compiler.module);
-
-				llvm::BasicBlock* toplevel = llvm::BasicBlock::Create(
-						compiler, "", f);
-				compiler.SetInsertPoint(toplevel);
-#endif
-
-				llvm::Value* v = definition->codegen(compiler);
-				compiler.builder.CreateRet(v);
-
-				compiler.builder.SetInsertPoint(bb, bi);
-			}
-
+			definition->codegen(compiler);
 			return body->codegen(compiler);
 		}
+	};
 
-		SymbolTable& getSymbolTable()
+	struct ASTFunctionCall : public ASTNode
+	{
+		string id;
+		vector<ASTNode*> arguments;
+		FunctionSymbol* function;
+
+		using ASTNode::position;
+		using ASTNode::getFrame;
+
+		ASTFunctionCall(const Position& position, const string& id,
+				const vector<ASTNode*>& arguments):
+			ASTNode(position),
+			id(id), arguments(arguments),
+			function(NULL)
 		{
-			return _symbolTable;
+			for (typename vector<ASTNode*>::const_iterator i = arguments.begin(),
+					e = arguments.end(); i != e; i++)
+			{
+				(*i)->parent = this;
+			}
+		}
+
+		void resolveVariables(Compiler& compiler)
+		{
+			Symbol* symbol = getFrame()->symbolTable->resolve(id);
+			if (!symbol)
+				throw SymbolException(id, this);
+			if (!symbol->isFunction())
+			{
+				std::stringstream s;
+				s << "attempt to call '" << id << "', which is not a function";
+				throw CompilationException(position.formatError(s.str()));
+			}
+			function = (FunctionSymbol*) symbol;
+
+			for (typename vector<ASTNode*>::const_iterator i = arguments.begin(),
+					e = arguments.end(); i != e; i++)
+			{
+				(*i)->resolveVariables(compiler);
+			}
+		}
+
+		llvm::Value* codegen(Compiler& compiler)
+		{
+			vector<llvm::Value*> args;
+			for (typename vector<ASTNode*>::const_iterator i = arguments.begin(),
+					e = arguments.end(); i != e; i++)
+			{
+				llvm::Value* v = (*i)->codegen(compiler);
+				args.push_back(v);
+			}
+
+			llvm::Value* f = function->value(compiler.module);
+			assert(f);
+			return compiler.builder.CreateCall(f, args);
 		}
 	};
 
@@ -502,15 +590,14 @@ private:
 	{
 		ASTNode* body;
 
-		SymbolTable& _symbolTable;
-		using ASTFrame::getParentFrame;
+		using ASTFrame::symbolTable;
 
 		ASTToplevel(const Position& position, ASTNode* body,
-				SymbolTable& symboltable):
+				SymbolTable* st):
 			ASTFrame(position),
-			body(body),
-			_symbolTable(symboltable)
+			body(body)
 		{
+			this->symbolTable = st;
 			body->parent = this;
 		}
 
@@ -524,11 +611,6 @@ private:
 			llvm::Value* v = body->codegen(compiler);
 			compiler.builder.CreateRet(v);
 			return NULL;
-		}
-
-		SymbolTable& getSymbolTable()
-		{
-			return _symbolTable;
 		}
 	};
 
@@ -560,7 +642,7 @@ private:
 
 	void expect_eof(L& lexer)
 	{
-		if (lexer.token() != L::EOF)
+		if (lexer.token() != L::ENDOFFILE)
 			lexer.error("expected EOF");
 	}
 
@@ -635,13 +717,34 @@ private:
 		parse_typespec(lexer, returntype);
 	}
 
-	ASTVariable* parse_variable(L& lexer)
+	ASTNode* parse_variable_or_function_call(L& lexer)
 	{
 		Position position = lexer.position();
 
 		string id;
 		parse_identifier(lexer, id);
-		return retain(new ASTVariable(position, id));
+
+		if (lexer.token() == L::OPENPAREN)
+		{
+			/* Function call. */
+			expect(lexer, L::OPENPAREN);
+
+			vector<ASTNode*> arguments;
+			while (lexer.token() != L::CLOSEPAREN)
+			{
+				arguments.push_back(parse_expression(lexer));
+				parse_list_separator(lexer);
+			}
+
+			expect(lexer, L::CLOSEPAREN);
+
+			return retain(new ASTFunctionCall(position, id, arguments));
+		}
+		else
+		{
+			/* Variable reference. */
+			return retain(new ASTVariable(position, id));
+		}
 	}
 
 	ASTNode* parse_leaf(L& lexer)
@@ -664,7 +767,7 @@ private:
 					return parse_vector(lexer);
 				else if (id == "let")
 					return parse_let(lexer);
-				return parse_variable(lexer);
+				return parse_variable_or_function_call(lexer);
 			}
 		}
 
@@ -707,12 +810,36 @@ private:
 		char returntype;
 		parse_typespec(lexer, returntype);
 
-		expect_operator(lexer, "=");
-		ASTNode* value = parse_expression(lexer);
-		expect_operator(lexer, ";");
-		ASTNode* body = parse_expression(lexer);
-		return retain(new ASTDefineVariable(position, id, returntype,
-				value, body));
+		if (lexer.token() == L::OPENPAREN)
+		{
+			/* Function definition. */
+
+			vector<VariableSymbol*> arguments;
+			char returntype;
+			parse_functionsignature(lexer, arguments, returntype);
+
+			FunctionSymbol* f = retain(
+					new FunctionSymbol(id, arguments, returntype));
+
+			expect_operator(lexer, "=");
+			ASTNode* value = parse_expression(lexer);
+			ASTFunctionBody* definition = retain(
+					new ASTFunctionBody(position, f, value));
+			expect_operator(lexer, ";");
+			ASTNode* body = parse_expression(lexer);
+			return retain(new ASTDefineFunction(position, f, definition, body));
+		}
+		else
+		{
+			/* Variable definition. */
+
+			expect_operator(lexer, "=");
+			ASTNode* value = parse_expression(lexer);
+			expect_operator(lexer, ";");
+			ASTNode* body = parse_expression(lexer);
+			return retain(new ASTDefineVariable(position, id, returntype,
+					value, body));
+		}
 	}
 
 	ASTVector* parse_vector(L& lexer)
@@ -730,7 +857,7 @@ private:
 		return retain(new ASTVector(position, x, y, z));
 	}
 
-	ASTToplevel* parse_toplevel(L& lexer, SymbolTable& symboltable)
+	ASTToplevel* parse_toplevel(L& lexer, SymbolTable* symboltable)
 	{
 		Position position = lexer.position();
 		ASTNode* body = parse_tight(lexer);

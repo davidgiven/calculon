@@ -26,7 +26,7 @@ public:
 	enum
 	{
 		INVALID,
-		EOF,
+		ENDOFFILE,
 		NUMBER,
 		IDENTIFIER,
 		OPERATOR,
@@ -97,8 +97,8 @@ public:
 		}
 		if (_data.eof())
 		{
-			_token = EOF;
-			return EOF;
+			_token = ENDOFFILE;
+			return ENDOFFILE;
 		}
 
 		_tokenPos = _pos;

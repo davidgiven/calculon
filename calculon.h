@@ -118,7 +118,7 @@ namespace Calculon
 	#include "calculon_lexer.h"
 	#include "calculon_compiler.h"
 
-	class StandardSymbolTable : public SymbolTable
+	class StandardSymbolTable : public MultipleSymbolTable
 	{
 	};
 
