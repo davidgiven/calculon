@@ -13,12 +13,13 @@ class CompilerBase
 template <>
 class CompilerBase<double>
 {
-protected:
+public:
 	enum
 	{
 		REAL = 'D'
 	};
 
+protected:
 	static llvm::Type* createRealType(llvm::LLVMContext& context)
 	{
 		return llvm::Type::getDoubleTy(context);
@@ -28,12 +29,13 @@ protected:
 template <>
 class CompilerBase<float>
 {
-protected:
+public:
 	enum
 	{
 		REAL = 'F'
 	};
 
+protected:
 	static llvm::Type* createRealType(llvm::LLVMContext& context)
 	{
 		return llvm::Type::getFloatTy(context);
@@ -53,7 +55,13 @@ public:
 	llvm::Value* zindex;
 	llvm::Type* realType;
 	llvm::Type* vectorType;
-	llvm::Type* structType;
+	llvm::Type* pointerType;
+
+	using CompilerBase<Real>::REAL;
+	enum
+	{
+		VECTOR = 'V'
+	};
 
 private:
 	class ASTNode;
@@ -62,11 +70,6 @@ private:
 	typedef Lexer<Real> L;
 	typedef pair<string, char> Argument;
 
-	enum
-	{
-		VECTOR = 'V'
-	};
-	using CompilerBase<Real>::REAL;
 	using CompilerBase<Real>::createRealType;
 
 	class TypeException : public CompilationException
@@ -106,8 +109,10 @@ public:
 		zindex = llvm::ConstantInt::get(intType, 2);
 		realType = createRealType(context);
 		vectorType = llvm::VectorType::get(realType, 4);
-		structType = llvm::StructType::get(
+
+		llvm::Type* structType = llvm::StructType::get(
 				realType, realType, realType, NULL);
+		pointerType = llvm::PointerType::get(structType, 0);
 	}
 
 	llvm::Type* getInternalType(char c)
@@ -125,55 +130,33 @@ public:
 		switch (c)
 		{
 			case REAL: return realType;
-			case VECTOR: return structType;
+			case VECTOR: return pointerType;
 		}
 		assert(false);
 	}
 
-	llvm::Value* convertInternalToExternal(llvm::Value* v, char type)
+	void storeVector(llvm::Value* v, llvm::Value* p)
 	{
-		switch (type)
-		{
-			case REAL:
-				return v;
+		llvm::Value* xv = builder.CreateExtractElement(v, xindex);
+		llvm::Value* yv = builder.CreateExtractElement(v, yindex);
+		llvm::Value* zv = builder.CreateExtractElement(v, zindex);
 
-			case VECTOR:
-			{
-				llvm::Value* xv = builder.CreateExtractElement(v, xindex);
-				llvm::Value* yv = builder.CreateExtractElement(v, yindex);
-				llvm::Value* zv = builder.CreateExtractElement(v, zindex);
-
-				v = llvm::UndefValue::get(structType);
-				v = builder.CreateInsertValue(v, xv, 0);
-				v = builder.CreateInsertValue(v, yv, 1);
-				v = builder.CreateInsertValue(v, zv, 2);
-				return v;
-			}
-		}
-		assert(false);
+		builder.CreateStore(xv, builder.CreateStructGEP(p, 0));
+		builder.CreateStore(yv, builder.CreateStructGEP(p, 1));
+		builder.CreateStore(zv, builder.CreateStructGEP(p, 2));
 	}
 
-	llvm::Value* convertExternalToInternal(llvm::Value* v, char type)
+	llvm::Value* loadVector(llvm::Value* p)
 	{
-		switch (type)
-		{
-			case REAL:
-				return v;
+		llvm::Value* xv = builder.CreateLoad(builder.CreateStructGEP(p, 0));
+		llvm::Value* yv = builder.CreateLoad(builder.CreateStructGEP(p, 1));
+		llvm::Value* zv = builder.CreateLoad(builder.CreateStructGEP(p, 2));
 
-			case VECTOR:
-			{
-				llvm::Value* xv = builder.CreateExtractValue(v, 0);
-				llvm::Value* yv = builder.CreateExtractValue(v, 1);
-				llvm::Value* zv = builder.CreateExtractValue(v, 2);
-
-				v = llvm::UndefValue::get(vectorType);
-				v = builder.CreateInsertElement(v, xv, xindex);
-				v = builder.CreateInsertElement(v, yv, yindex);
-				v = builder.CreateInsertElement(v, zv, zindex);
-				return v;
-			}
-		}
-		assert(false);
+		llvm::Value* v = llvm::UndefValue::get(vectorType);
+		v = builder.CreateInsertElement(v, xv, xindex);
+		v = builder.CreateInsertElement(v, yv, yindex);
+		v = builder.CreateInsertElement(v, zv, zindex);
+		return v;
 	}
 
 public:

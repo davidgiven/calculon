@@ -123,7 +123,20 @@ namespace Calculon
 	{
 	};
 
-	template <class Real, typename FuncType> class Program
+	template <class R>
+	class Type
+	{
+	public:
+		typedef R Real;
+		typedef struct
+		{
+			Real x, y, z;
+		}
+		Vector;
+	};
+
+	template <class Real, typename FuncType>
+	class Program
 	{
 	private:
 		llvm::LLVMContext _context;
@@ -191,7 +204,8 @@ namespace Calculon
 			_engine->DisableLazyCompilation();
 			_engine->DisableSymbolSearching();
 
-			Compiler<Real> compiler(_context, _module);
+			typedef Compiler<Real> ThisCompiler;
+			ThisCompiler compiler(_context, _module);
 
 			/* Compile the program. */
 
@@ -202,6 +216,20 @@ namespace Calculon
 
 			vector<VariableSymbol*>& arguments = f->arguments();
 			vector<llvm::Type*> externaltypes;
+
+			llvm::Type* returntype = compiler.getExternalType(f->returntype());
+			bool inputoffset = false;
+			if (f->returntype() == ThisCompiler::VECTOR)
+			{
+				/* Insert an argument at the front which is the return-by-
+				 * reference vector return value.
+				 */
+
+				externaltypes.push_back(compiler.getExternalType(ThisCompiler::VECTOR));
+				returntype = llvm::Type::getVoidTy(_context);
+				inputoffset = true;
+			}
+
 			for (int i=0; i<arguments.size(); i++)
 			{
 				VariableSymbol* symbol = arguments[i];
@@ -209,8 +237,7 @@ namespace Calculon
 			}
 
 			llvm::FunctionType* ft = llvm::FunctionType::get(
-					compiler.getExternalType(f->returntype()),
-					externaltypes, false);
+					returntype, externaltypes, false);
 
 			_function = llvm::Function::Create(ft,
 					llvm::Function::ExternalLinkage,
@@ -225,17 +252,21 @@ namespace Calculon
 
 			{
 				int i = 0;
-				for (llvm::Function::arg_iterator ii = _function->arg_begin(),
-						ee = _function->arg_end(); ii != ee; ii++)
+				llvm::Function::arg_iterator ii = _function->arg_begin();
+				if (inputoffset)
+					ii++;
+				while (ii != _function->arg_end())
 				{
 					llvm::Value* v = ii;
 					VariableSymbol* symbol = arguments[i];
 
 					v->setName(symbol->name());
-					params.push_back(compiler.convertExternalToInternal(
-							v, symbol->type()));
+					if (symbol->type() == Compiler<Real>::VECTOR)
+						v = compiler.loadVector(v);
 
+					params.push_back(v);
 					i++;
+					ii++;
 				}
 			}
 
@@ -244,8 +275,11 @@ namespace Calculon
 			llvm::Value* retval = compiler.builder.CreateCall(
 					(llvm::Function*) f->value(_module), params);
 
-			retval = compiler.convertInternalToExternal(retval,
-					f->returntype());
+			if (f->returntype() == ThisCompiler::VECTOR)
+			{
+				compiler.storeVector(retval, _function->arg_begin());
+				retval = NULL;
+			}
 
 			compiler.builder.CreateRet(retval);
 
@@ -262,22 +296,6 @@ namespace Calculon
 			pmb.OptLevel = 3;
 			pmb.populateFunctionPassManager(fpm);
 			pmb.populateModulePassManager(mpm);
-
-#if 0
-			// Set up the optimizer pipeline.  Start with registering info about how the
-			// target lays out data structures.
-			fpm.add(new llvm::DataLayout(*_engine->getDataLayout()));
-			// Provide basic AliasAnalysis support for GVN.
-			fpm.add(llvm::createBasicAliasAnalysisPass());
-			// Do simple "peephole" optimizations and bit-twiddling optzns.
-			fpm.add(llvm::createInstructionCombiningPass());
-			// Reassociate expressions.
-			fpm.add(llvm::createReassociatePass());
-			// Eliminate Common SubExpressions.
-			fpm.add(llvm::createGVNPass());
-			// Simplify the control flow graph (deleting unreachable blocks, etc).
-			fpm.add(llvm::createCFGSimplificationPass());
-#endif
 
 			fpm.doInitialization();
 			llvm::verifyFunction(*_function);
