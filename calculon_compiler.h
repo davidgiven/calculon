@@ -97,6 +97,38 @@ private:
 		}
 	};
 
+	class OperatorException : public CompilationException
+	{
+		static string formatError(const string& id, ASTNode* node)
+		{
+			std::stringstream s;
+			s << "unknown operator '" << id << "'";
+			return node->position.formatError(s.str());
+		}
+
+	public:
+		OperatorException(const string& id, ASTNode* node):
+			CompilationException(formatError(id, node))
+		{
+		}
+	};
+
+	class IntrinsicTypeException : public CompilationException
+	{
+		static string formatError(const string& id, char type, ASTNode* node)
+		{
+			std::stringstream s;
+			s << "wrong type applied to '" << id << "'";
+			return node->position.formatError(s.str());
+		}
+
+	public:
+		IntrinsicTypeException(const string& id, char type, ASTNode* node):
+			CompilationException(formatError(id, type, node))
+		{
+		}
+	};
+
 public:
 	Compiler(llvm::LLVMContext& context, llvm::Module* module):
 		context(context),
@@ -132,6 +164,15 @@ public:
 			case REAL: return realType;
 			case VECTOR: return pointerType;
 		}
+		assert(false);
+	}
+
+	char llvmToType(llvm::Type* t)
+	{
+		if (t == realType)
+			return REAL;
+		else if (t == vectorType)
+			return VECTOR;
 		assert(false);
 	}
 
@@ -379,6 +420,48 @@ private:
 			assert(element);
 
 			return compiler.builder.CreateExtractElement(v, element);
+		}
+
+		void resolveVariables(Compiler& compiler)
+		{
+			value->resolveVariables(compiler);
+		}
+	};
+
+	struct ASTUnary : public ASTNode
+	{
+		string id;
+		ASTNode* value;
+
+		ASTUnary(const Position& position, const string& id, ASTNode* value):
+			ASTNode(position),
+			id(id), value(value)
+		{
+			value->parent = this;
+		}
+
+		llvm::Value* codegen(Compiler& compiler)
+		{
+			llvm::Value* v = value->codegen(compiler);
+			char type = compiler.llvmToType(v->getType());
+
+			if (id == "-")
+			{
+				switch (type)
+				{
+					case REAL:
+					case VECTOR:
+						v = compiler.builder.CreateFNeg(v);
+						break;
+
+					default:
+						throw IntrinsicTypeException(id, type, this);
+				}
+			}
+			else
+				throw SymbolException(id, this);
+
+			return v;
 		}
 
 		void resolveVariables(Compiler& compiler)
@@ -803,6 +886,14 @@ private:
 				return retain(new ASTConstant(position, value));
 			}
 
+			case L::OPENPAREN:
+			{
+				expect(lexer, L::OPENPAREN);
+				ASTNode* v = parse_expression(lexer);
+				expect(lexer, L::CLOSEPAREN);
+				return v;
+			}
+
 			case L::OPERATOR:
 			case L::IDENTIFIER:
 			{
@@ -837,9 +928,28 @@ private:
 		return value;
 	}
 
+	ASTNode* parse_unary(L& lexer)
+	{
+		if (lexer.token() == L::OPERATOR)
+		{
+			Position position = lexer.position();
+			string id = lexer.id();
+
+			if (id == "-")
+			{
+				lexer.next();
+
+				ASTNode* value = parse_tight(lexer);
+				return retain(new ASTUnary(position, id, value));
+			}
+		}
+
+		return parse_tight(lexer);
+	}
+
 	ASTNode* parse_expression(L& lexer)
 	{
-		return parse_tight(lexer);
+		return parse_unary(lexer);
 	}
 
 	ASTFrame* parse_let(L& lexer)
@@ -904,7 +1014,7 @@ private:
 	ASTToplevel* parse_toplevel(L& lexer, SymbolTable* symboltable)
 	{
 		Position position = lexer.position();
-		ASTNode* body = parse_tight(lexer);
+		ASTNode* body = parse_expression(lexer);
 		return retain(new ASTToplevel(position, body, symboltable));
 	}
 };
