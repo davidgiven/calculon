@@ -5,6 +5,9 @@
 #error "Don't include this, include calculon.h instead."
 #endif
 
+class CallableSymbol;
+class ValuedSymbol;
+
 class Symbol : public Object
 {
 	string _name;
@@ -24,25 +27,31 @@ public:
 		return _name;
 	}
 
-	virtual bool isFunction() const
+	virtual ValuedSymbol* isValued()
 	{
-		return false;
+		return NULL;
 	}
 
-	virtual llvm::Value* value(llvm::Module* module) = 0;
+	virtual CallableSymbol* isCallable()
+	{
+		return NULL;
+	}
 };
 
-class VariableSymbol : public Symbol
+class ValuedSymbol : public Symbol
 {
 	llvm::Value* _value;
-	char _type;
 
 public:
-	VariableSymbol(const string& name, char type):
+	ValuedSymbol(const string& name):
 		Symbol(name),
-		_value(NULL),
-		_type(type)
+		_value(NULL)
 	{
+	}
+
+	ValuedSymbol* isValued()
+	{
+		return this;
 	}
 
 	void setValue(llvm::Value* value)
@@ -50,9 +59,21 @@ public:
 		_value = value;
 	}
 
-	llvm::Value* value(llvm::Module* module)
+	llvm::Value* value() const
 	{
 		return _value;
+	}
+};
+
+class VariableSymbol : public ValuedSymbol
+{
+	char _type;
+
+public:
+	VariableSymbol(const string& name, char type):
+		ValuedSymbol(name),
+		_type(type)
+	{
 	}
 
 	char type() const
@@ -61,35 +82,64 @@ public:
 	}
 };
 
-class FunctionSymbol : public Symbol
+class CallableSymbol : public Symbol
 {
-	llvm::Function* _value;
+public:
+	CallableSymbol(const string& name):
+		Symbol(name)
+	{
+	}
+
+	CallableSymbol* isCallable()
+	{
+		return this;
+	}
+
+	void checkParameterCount(CompilerState& state,
+			const vector<llvm::Value*>& parameters, int count)
+	{
+		if (parameters.size() != count)
+		{
+			std::stringstream s;
+			s << "attempt to call function '" << name() <<
+					"' with the wrong number of parameters";
+			throw CompilationException(state.position.formatError(s.str()));
+		}
+	}
+
+	void typeError(CompilerState& state,
+			int index, llvm::Value* argument, char type)
+	{
+		std::stringstream s;
+		s << "call to parameter " << index << " of function '" << name()
+				<< "' with wrong type";
+		throw CompilationException(state.position.formatError(s.str()));
+	}
+
+	virtual void typeCheckParameter(CompilerState& state,
+			int index, llvm::Value* argument, char type)
+	{
+		if (argument->getType() != state.getInternalType(type))
+			typeError(state, index, argument, type);
+	}
+
+	virtual llvm::Value* emitCall(CompilerState& state,
+			const vector<llvm::Value*>& parameters) = 0;
+};
+
+class FunctionSymbol : public CallableSymbol
+{
 	vector<VariableSymbol*> _arguments;
 	char _returntype;
+	llvm::Function* _function;
 
 public:
 	FunctionSymbol(const string& name, const vector<VariableSymbol*>& arguments,
 			char returntype):
-		Symbol(name),
-		_value(NULL),
+		CallableSymbol(name),
 		_arguments(arguments),
 		_returntype(returntype)
 	{
-	}
-
-	bool isFunction() const
-	{
-		return true;
-	}
-
-	void setValue(llvm::Function* value)
-	{
-		_value = value;
-	}
-
-	llvm::Value* value(llvm::Module* module)
-	{
-		return _value;
 	}
 
 	vector<VariableSymbol*>& arguments()
@@ -101,6 +151,76 @@ public:
 	{
 		return _returntype;
 	}
+
+	void setFunction(llvm::Function* f)
+	{
+		_function = f;
+	}
+
+	llvm::Value* emitCall(CompilerState& state,
+			const vector<llvm::Value*>& parameters)
+	{
+		checkParameterCount(state, parameters, _arguments.size());
+
+		int i = 1;
+		vector<llvm::Value*>::const_iterator pi = parameters.begin();
+		vector<VariableSymbol*>::const_iterator ai = _arguments.begin();
+		while (pi != parameters.end())
+		{
+			llvm::Value* v = *pi;
+			typeCheckParameter(state, i, v, (*ai)->type());
+
+			i++;
+			pi++;
+			ai++;
+		}
+
+		assert(_function);
+		return state.builder.CreateCall(_function, parameters);
+	}
+};
+
+class IntrinsicFunctionSymbol : public CallableSymbol
+{
+	int _arguments;
+
+public:
+	IntrinsicFunctionSymbol(const string& name, int arguments):
+		CallableSymbol(name),
+		_arguments(arguments)
+	{
+	}
+
+	llvm::Value* emitCall(CompilerState& state,
+			const vector<llvm::Value*>& parameters)
+	{
+		checkParameterCount(state, parameters, _arguments);
+
+		int i = 1;
+		vector<llvm::Value*>::const_iterator pi = parameters.begin();
+		vector<llvm::Type*> llvmtypes;
+		while (pi != parameters.end())
+		{
+			llvm::Value* v = *pi;
+			typeCheckParameter(state, i, v, 0);
+			llvmtypes.push_back(v->getType());
+
+			i++;
+			pi++;
+		}
+
+		llvm::FunctionType* ft = llvm::FunctionType::get(
+				returnType(llvmtypes), llvmtypes, false);
+
+		llvm::Function* f = llvm::Function::Create(ft,
+				llvm::Function::ExternalLinkage,
+				intrinsicName(llvmtypes), state.module);
+
+		return state.builder.CreateCall(f, parameters);
+	}
+
+	virtual llvm::Type* returnType(const vector<llvm::Type*>& inputTypes) = 0;
+	virtual string intrinsicName(const vector<llvm::Type*>& inputTypes) = 0;
 };
 
 class SymbolTable : public Object

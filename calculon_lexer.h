@@ -5,20 +5,6 @@
 #error "Don't include this, include calculon.h instead."
 #endif
 
-struct Position
-{
-	int line;
-	int column;
-
-	string formatError(const string& what)
-	{
-		std::stringstream s;
-		s << what
-			<< " at " << line << ":" << column;
-		return s.str();
-	}
-};
-
 template <typename Real>
 class Lexer
 {

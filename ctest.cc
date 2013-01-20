@@ -8,14 +8,14 @@
 
 int main(int argc, const char* argv[])
 {
-	typedef float Number;
+	typedef double Number;
 	typedef Calculon::Type<Number>::Vector Vector;
 
 	Calculon::StandardSymbolTable symbols;
 
 	typedef void TestFunc(Vector* v, Vector* v1, Vector* v2);
 	std::ifstream code("test.cal");
-	Calculon::Program<Number, TestFunc> func(symbols, code, "():vector");
+	Calculon::Program<Number, TestFunc> func(symbols, code, "(x)");
 	std::cout << "size of Program object: " << sizeof(func) << "\n";
 	func.dump();
 

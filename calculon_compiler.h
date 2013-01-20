@@ -43,20 +43,10 @@ protected:
 };
 
 template <typename Real>
-class Compiler : public CompilerBase<Real>, Allocator
+class Compiler : public CompilerBase<Real>, public Allocator,
+	public CompilerState
 {
 public:
-	llvm::LLVMContext& context;
-	llvm::Module* module;
-	llvm::IRBuilder<> builder;
-	llvm::Type* intType;
-	llvm::Value* xindex;
-	llvm::Value* yindex;
-	llvm::Value* zindex;
-	llvm::Type* realType;
-	llvm::Type* vectorType;
-	llvm::Type* pointerType;
-
 	using CompilerBase<Real>::REAL;
 	enum
 	{
@@ -131,9 +121,7 @@ private:
 
 public:
 	Compiler(llvm::LLVMContext& context, llvm::Module* module):
-		context(context),
-		module(module),
-		builder(context)
+		CompilerState(context, module)
 	{
 		intType = llvm::IntegerType::get(context, 32);
 		xindex = llvm::ConstantInt::get(intType, 0);
@@ -145,26 +133,6 @@ public:
 		llvm::Type* structType = llvm::StructType::get(
 				realType, realType, realType, NULL);
 		pointerType = llvm::PointerType::get(structType, 0);
-	}
-
-	llvm::Type* getInternalType(char c)
-	{
-		switch (c)
-		{
-			case REAL: return realType;
-			case VECTOR: return vectorType;
-		}
-		assert(false);
-	}
-
-	llvm::Type* getExternalType(char c)
-	{
-		switch (c)
-		{
-			case REAL: return realType;
-			case VECTOR: return pointerType;
-		}
-		assert(false);
 	}
 
 	char llvmToType(llvm::Type* t)
@@ -201,7 +169,8 @@ public:
 	}
 
 public:
-	FunctionSymbol* compile(std::istream& signaturestream, std::istream& codestream)
+	FunctionSymbol* compile(std::istream& signaturestream, std::istream& codestream,
+			SymbolTable* globals)
 	{
 		vector<VariableSymbol*> arguments;
 		char returntype;
@@ -215,7 +184,7 @@ public:
 
 		/* Create symbols and the LLVM type array for the function. */
 
-		MultipleSymbolTable symboltable;
+		MultipleSymbolTable symboltable(globals);
 		vector<llvm::Type*> llvmtypes;
 		for (int i=0; i<arguments.size(); i++)
 		{
@@ -238,7 +207,7 @@ public:
 		llvm::Function* f = llvm::Function::Create(ft,
 				llvm::Function::InternalLinkage,
 				"toplevel", module);
-		symbol->setValue(f);
+		symbol->setFunction(f);
 
 		/* Bind the argument symbols to their LLVM values. */
 
@@ -334,9 +303,10 @@ private:
 	struct ASTVariable : public ASTNode
 	{
 		string id;
-		Symbol* symbol;
+		ValuedSymbol* symbol;
 
 		using ASTNode::getFrame;
+		using ASTNode::position;
 
 		ASTVariable(const Position& position, const string& id):
 			ASTNode(position),
@@ -347,14 +317,21 @@ private:
 		void resolveVariables(Compiler& compiler)
 		{
 			SymbolTable* symbolTable = getFrame()->symbolTable;
-			symbol = symbolTable->resolve(id);
-			if (!symbol)
+			Symbol* s = symbolTable->resolve(id);
+			if (!s)
 				throw SymbolException(id, this);
+			symbol = s->isValued();
+			if (!symbol)
+			{
+				std::stringstream s;
+				s << "attempt to get the value of '" << id << "', which is not a variable";
+				throw CompilationException(position.formatError(s.str()));
+			}
 		}
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
-			return symbol->value(compiler.module);
+			return symbol->value();
 		}
 	};
 
@@ -583,7 +560,7 @@ private:
 			llvm::Function* f = llvm::Function::Create(ft,
 					llvm::Function::InternalLinkage,
 					function->name(), compiler.module);
-			function->setValue(f);
+			function->setFunction(f);
 
 			/* Bind the argument symbols to their LLVM values. */
 
@@ -660,7 +637,7 @@ private:
 	{
 		string id;
 		vector<ASTNode*> arguments;
-		FunctionSymbol* function;
+		CallableSymbol* function;
 
 		using ASTNode::position;
 		using ASTNode::getFrame;
@@ -683,13 +660,13 @@ private:
 			Symbol* symbol = getFrame()->symbolTable->resolve(id);
 			if (!symbol)
 				throw SymbolException(id, this);
-			if (!symbol->isFunction())
+			function = symbol->isCallable();
+			if (!function)
 			{
 				std::stringstream s;
 				s << "attempt to call '" << id << "', which is not a function";
 				throw CompilationException(position.formatError(s.str()));
 			}
-			function = (FunctionSymbol*) symbol;
 
 			for (typename vector<ASTNode*>::const_iterator i = arguments.begin(),
 					e = arguments.end(); i != e; i++)
@@ -700,39 +677,16 @@ private:
 
 		llvm::Value* codegen(Compiler& compiler)
 		{
-			vector<llvm::Value*> args;
-
-			if (arguments.size() != function->arguments().size())
+			vector<llvm::Value*> parameters;
+			for (typename vector<ASTNode*>::const_iterator i = arguments.begin(),
+					e = arguments.end(); i != e; i++)
 			{
-				std::stringstream s;
-				s << "attempt to call function '" << id <<
-						"' with the wrong number of parameters";
-				throw CompilationException(position.formatError(s.str()));
+				llvm::Value* v = (*i)->codegen(compiler);
+				parameters.push_back(v);
 			}
 
-			int i = 1;
-			typename vector<ASTNode*>::const_iterator argi = arguments.begin();
-			vector<VariableSymbol*>::const_iterator parami = function->arguments().begin();
-			while (argi != arguments.end())
-			{
-				llvm::Value* v = (*argi)->codegen(compiler);
-				if (compiler.llvmToType(v->getType()) != (*parami)->type())
-				{
-					std::stringstream s;
-					s << "call to parameter " << i << " of function '" << id
-							<< "' with wrong type";
-					throw CompilationException(position.formatError(s.str()));
-				}
-
-				args.push_back(v);
-				i++;
-				argi++;
-				parami++;
-			}
-
-			llvm::Value* f = function->value(compiler.module);
-			assert(f);
-			return compiler.builder.CreateCall(f, args);
+			compiler.position = position;
+			return function->emitCall(compiler, parameters);
 		}
 	};
 

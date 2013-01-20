@@ -43,85 +43,78 @@ namespace Calculon
 		}
 	};
 
-#if 0
-	class SymbolTable
+	struct Position
 	{
-		typedef void (*FuncPtr)();
-		typedef std::map<string, FuncPtr> Symbols;
+		int line;
+		int column;
 
-		SymbolTable* _next;
-		Symbols  _symbols;
+		string formatError(const string& what)
+		{
+			std::stringstream s;
+			s << what
+				<< " at " << line << ":" << column;
+			return s.str();
+		}
+	};
 
+	class CompilerState
+	{
 	public:
-		SymbolTable(SymbolTable& next):
-			_next(&next)
+		llvm::LLVMContext& context;
+		llvm::Module* module;
+		llvm::IRBuilder<> builder;
+		Position position;
+		llvm::Type* intType;
+		llvm::Value* xindex;
+		llvm::Value* yindex;
+		llvm::Value* zindex;
+		llvm::Type* realType;
+		llvm::Type* vectorType;
+		llvm::Type* pointerType;
+
+		CompilerState(llvm::LLVMContext& context, llvm::Module* module):
+			context(context),
+			module(module),
+			builder(context),
+			intType(NULL), xindex(NULL), yindex(NULL), zindex(NULL),
+			realType(NULL), vectorType(NULL), pointerType(NULL)
 		{
 		}
 
-		SymbolTable():
-			_next(NULL)
+		llvm::Type* getInternalType(char c)
 		{
-		}
-
-		template <typename T>
-		void add(const string& name, const string& signature, T function)
-		{
-			add(name, signature, (FuncPtr) function);
-		}
-
-		FuncPtr get(const string& name, const string& signature)
-		{
-			Symbols::const_iterator i = _symbols.find(name + " " + signature);
-			if (i == _symbols.end())
+			switch (c)
 			{
-				if (_next)
-					return _next->get(name, signature);
-				return NULL;
+				case 'D':
+				case 'F':
+					return realType;
+
+				case 'V':
+					return vectorType;
 			}
-
-			return i->second;
+			assert(false);
 		}
 
-	private:
-		void add(const string& name, const string& signature, FuncPtr function)
+		llvm::Type* getExternalType(char c)
 		{
-			_symbols[name + " " + signature] = function;
+			switch (c)
+			{
+				case 'D':
+				case 'F':
+					return realType;
+
+				case 'V':
+					return pointerType;
+			}
+			assert(false);
 		}
 	};
-
-	class StandardSymbolTable : public SymbolTable
-	{
-	public:
-		StandardSymbolTable()
-		{
-			add("sin", "D>D", sin);
-			add("sin", "F>F", sinf);
-			add("asin", "D>D", asin);
-			add("asin", "F>F", asinf);
-			add("cos", "D>D", cos);
-			add("cos", "F>F", cosf);
-			add("acos", "D>D", acos);
-			add("acos", "F>F", acosf);
-			add("tan", "D>D", tan);
-			add("tan", "F>F", tanf);
-			add("atan", "D>D", atan);
-			add("atan", "F>F", atanf);
-			add("atan2", "DD>D", atan2);
-			add("atan2", "FF>F", atan2f);
-			add("sqrt", "D>D", sqrt);
-			add("sqrt", "F>F", sqrtf);
-		}
-	};
-#endif
 
 	#include "calculon_allocator.h"
 	#include "calculon_symbol.h"
+	#include "calculon_intrinsics.h"
 	#include "calculon_lexer.h"
 	#include "calculon_compiler.h"
-
-	class StandardSymbolTable : public MultipleSymbolTable
-	{
-	};
 
 	template <class R>
 	class Type
@@ -140,14 +133,14 @@ namespace Calculon
 	{
 	private:
 		llvm::LLVMContext _context;
-		const SymbolTable& _symbols;
+		SymbolTable& _symbols;
 		llvm::Module* _module;
 		llvm::ExecutionEngine* _engine;
 		llvm::Function* _function;
 		FuncType* _funcptr;
 
 	public:
-		Program(const SymbolTable& symbols, const string& code, const string& signature):
+		Program(SymbolTable& symbols, const string& code, const string& signature):
 				_symbols(symbols),
 				_funcptr(NULL)
 		{
@@ -155,7 +148,7 @@ namespace Calculon
 			init(stream, signature);
 		}
 
-		Program(const SymbolTable& symbols, std::istream& code, const string& signature):
+		Program(SymbolTable& symbols, std::istream& code, const string& signature):
 				_symbols(symbols),
 				_funcptr(NULL)
 		{
@@ -210,7 +203,8 @@ namespace Calculon
 			/* Compile the program. */
 
 			std::istringstream signaturestream(signature);
-			FunctionSymbol* f = compiler.compile(signaturestream, codestream);
+			FunctionSymbol* f = compiler.compile(signaturestream, codestream,
+					&_symbols);
 
 			/* Create the interface function from this signature. */
 
@@ -272,8 +266,7 @@ namespace Calculon
 
 			/* Call the internal function. */
 
-			llvm::Value* retval = compiler.builder.CreateCall(
-					(llvm::Function*) f->value(_module), params);
+			llvm::Value* retval = f->emitCall(compiler, params);
 
 			if (f->returntype() == ThisCompiler::VECTOR)
 			{
