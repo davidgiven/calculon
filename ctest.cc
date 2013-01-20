@@ -15,7 +15,7 @@ int main(int argc, const char* argv[])
 
 	typedef void TestFunc(Vector* v, Vector* v1, Vector* v2);
 	std::ifstream code("test.cal");
-	Calculon::Program<Number, TestFunc> func(symbols, code, "(v1:vector,v2:vector):vector");
+	Calculon::Program<Number, TestFunc> func(symbols, code, "():vector");
 	std::cout << "size of Program object: " << sizeof(func) << "\n";
 	func.dump();
 

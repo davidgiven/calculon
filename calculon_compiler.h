@@ -227,7 +227,7 @@ public:
 		/* Compile the code to an AST. */
 
 		L codelexer(codestream);
-		ASTToplevel* ast = parse_toplevel(codelexer, &symboltable);
+		ASTToplevel* ast = parse_toplevel(codelexer, symbol, &symboltable);
 		ast->resolveVariables(*this);
 
 		/* Create the LLVM function itself. */
@@ -548,7 +548,8 @@ private:
 
 		void resolveVariables(Compiler& compiler)
 		{
-			symbolTable = compiler.retain(new MultipleSymbolTable(
+			if (!symbolTable)
+				symbolTable = compiler.retain(new MultipleSymbolTable(
 					parent->getFrame()->symbolTable));
 
 			vector<VariableSymbol*>& arguments = function->arguments();
@@ -700,11 +701,33 @@ private:
 		llvm::Value* codegen(Compiler& compiler)
 		{
 			vector<llvm::Value*> args;
-			for (typename vector<ASTNode*>::const_iterator i = arguments.begin(),
-					e = arguments.end(); i != e; i++)
+
+			if (arguments.size() != function->arguments().size())
 			{
-				llvm::Value* v = (*i)->codegen(compiler);
+				std::stringstream s;
+				s << "attempt to call function '" << id <<
+						"' with the wrong number of parameters";
+				throw CompilationException(position.formatError(s.str()));
+			}
+
+			int i = 1;
+			typename vector<ASTNode*>::const_iterator argi = arguments.begin();
+			vector<VariableSymbol*>::const_iterator parami = function->arguments().begin();
+			while (argi != arguments.end())
+			{
+				llvm::Value* v = (*argi)->codegen(compiler);
+				if (compiler.llvmToType(v->getType()) != (*parami)->type())
+				{
+					std::stringstream s;
+					s << "call to parameter " << i << " of function '" << id
+							<< "' with wrong type";
+					throw CompilationException(position.formatError(s.str()));
+				}
+
 				args.push_back(v);
+				i++;
+				argi++;
+				parami++;
 			}
 
 			llvm::Value* f = function->value(compiler.module);
@@ -713,31 +736,15 @@ private:
 		}
 	};
 
-	struct ASTToplevel : public ASTFrame
+	struct ASTToplevel : public ASTFunctionBody
 	{
-		ASTNode* body;
-
 		using ASTFrame::symbolTable;
 
-		ASTToplevel(const Position& position, ASTNode* body,
-				SymbolTable* st):
-			ASTFrame(position),
-			body(body)
+		ASTToplevel(const Position& position, FunctionSymbol* symbol,
+				ASTNode* body, SymbolTable* st):
+			ASTFunctionBody(position, symbol, body)
 		{
-			this->symbolTable = st;
-			body->parent = this;
-		}
-
-		void resolveVariables(Compiler& compiler)
-		{
-			body->resolveVariables(compiler);
-		}
-
-		llvm::Value* codegen(Compiler& compiler)
-		{
-			llvm::Value* v = body->codegen(compiler);
-			compiler.builder.CreateRet(v);
-			return NULL;
+			symbolTable = st;
 		}
 	};
 
@@ -1011,11 +1018,12 @@ private:
 		return retain(new ASTVector(position, x, y, z));
 	}
 
-	ASTToplevel* parse_toplevel(L& lexer, SymbolTable* symboltable)
+	ASTToplevel* parse_toplevel(L& lexer, FunctionSymbol* symbol,
+			SymbolTable* symboltable)
 	{
 		Position position = lexer.position();
 		ASTNode* body = parse_expression(lexer);
-		return retain(new ASTToplevel(position, body, symboltable));
+		return retain(new ASTToplevel(position, symbol, body, symboltable));
 	}
 };
 
