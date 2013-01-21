@@ -215,6 +215,7 @@ public:
 		llvm::Function* f = llvm::Function::Create(ft,
 				llvm::Function::ExternalLinkage,
 				intrinsicName(llvmtypes), state.module);
+		f->setDoesNotAccessMemory();
 
 		return state.builder.CreateCall(f, parameters);
 	}

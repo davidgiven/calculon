@@ -195,7 +195,7 @@ namespace Calculon
 			if (!_engine)
 				throw CompilationException(s);
 			_engine->DisableLazyCompilation();
-			_engine->DisableSymbolSearching();
+//			_engine->DisableSymbolSearching();
 
 			typedef Compiler<Real> ThisCompiler;
 			ThisCompiler compiler(_context, _module);

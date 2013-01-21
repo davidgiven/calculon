@@ -8,7 +8,7 @@
 
 int main(int argc, const char* argv[])
 {
-	typedef double Number;
+	typedef float Number;
 	typedef Calculon::Type<Number>::Vector Vector;
 
 	Calculon::StandardSymbolTable symbols;
