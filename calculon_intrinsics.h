@@ -7,9 +7,12 @@
 
 class StandardSymbolTable : public MultipleSymbolTable
 {
+	using MultipleSymbolTable::add;
+
 	class SimpleRealExternal : public IntrinsicFunctionSymbol
 	{
-		string _name;
+		using Symbol::name;
+		using CallableSymbol::typeError;
 
 	public:
 		SimpleRealExternal(const string& name, int params):
@@ -32,11 +35,8 @@ class StandardSymbolTable : public MultipleSymbolTable
 		string intrinsicName(const vector<llvm::Type*>& inputTypes)
 		{
 			llvm::Type* t = inputTypes[0];
-			if (t->isFloatTy())
-				return name() + "f";
-			else if (t->isDoubleTy())
-				return name();
-			assert(false);
+			const char* suffix = S::chooseDoubleOrFloat("", "f");
+			return name() + suffix;
 		}
 	};
 

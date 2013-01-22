@@ -34,270 +34,337 @@ namespace Calculon
 	using std::set;
 	using std::auto_ptr;
 
-	class CompilationException : public std::invalid_argument
+	class SettingsBase
 	{
 	public:
-		CompilationException(const string& what):
-			std::invalid_argument(what)
+		enum
 		{
+			VECTOR = 'V'
+		};
+	};
+
+	class RealIsDouble : public SettingsBase
+	{
+	public:
+		enum
+		{
+			REAL = 'D'
+		};
+
+		typedef double Real;
+
+	public:
+		static llvm::Type* createRealType(llvm::LLVMContext& context)
+		{
+			return llvm::Type::getDoubleTy(context);
+		}
+
+		template <typename T>
+		static T chooseDoubleOrFloat(T d, T f)
+		{
+			return d;
 		}
 	};
 
-	struct Position
-	{
-		int line;
-		int column;
-
-		string formatError(const string& what)
-		{
-			std::stringstream s;
-			s << what
-				<< " at " << line << ":" << column;
-			return s.str();
-		}
-	};
-
-	class CompilerState
+	class RealIsFloat : public SettingsBase
 	{
 	public:
-		llvm::LLVMContext& context;
-		llvm::Module* module;
-		llvm::IRBuilder<> builder;
-		Position position;
-		llvm::Type* intType;
-		llvm::Value* xindex;
-		llvm::Value* yindex;
-		llvm::Value* zindex;
-		llvm::Type* realType;
-		llvm::Type* vectorType;
-		llvm::Type* pointerType;
-
-		CompilerState(llvm::LLVMContext& context, llvm::Module* module):
-			context(context),
-			module(module),
-			builder(context),
-			intType(NULL), xindex(NULL), yindex(NULL), zindex(NULL),
-			realType(NULL), vectorType(NULL), pointerType(NULL)
+		enum
 		{
+			REAL = 'F'
+		};
+
+		typedef float Real;
+
+	public:
+		static llvm::Type* createRealType(llvm::LLVMContext& context)
+		{
+			return llvm::Type::getFloatTy(context);
 		}
 
-		llvm::Type* getInternalType(char c)
+		template <typename T>
+		static T chooseDoubleOrFloat(T d, T f)
 		{
-			switch (c)
-			{
-				case 'D':
-				case 'F':
-					return realType;
-
-				case 'V':
-					return vectorType;
-			}
-			assert(false);
-		}
-
-		llvm::Type* getExternalType(char c)
-		{
-			switch (c)
-			{
-				case 'D':
-				case 'F':
-					return realType;
-
-				case 'V':
-					return pointerType;
-			}
-			assert(false);
+			return f;
 		}
 	};
 
 	#include "calculon_allocator.h"
-	#include "calculon_symbol.h"
-	#include "calculon_intrinsics.h"
-	#include "calculon_lexer.h"
-	#include "calculon_compiler.h"
 
-	template <class R>
-	class Type
+	template <class S>
+	class Instance
 	{
 	public:
-		typedef R Real;
+		typedef typename S::Real Real;
 		typedef struct
 		{
 			Real x, y, z;
 		}
 		Vector;
-	};
 
-	template <class Real, typename FuncType>
-	class Program
-	{
 	private:
-		llvm::LLVMContext _context;
-		SymbolTable& _symbols;
-		llvm::Module* _module;
-		llvm::ExecutionEngine* _engine;
-		llvm::Function* _function;
-		FuncType* _funcptr;
+		enum
+		{
+			REAL = S::REAL,
+			VECTOR = S::VECTOR
+		};
+
+	private:
+		class CompilationException : public std::invalid_argument
+		{
+		public:
+			CompilationException(const string& what):
+				std::invalid_argument(what)
+			{
+			}
+		};
+
+		struct Position
+		{
+			int line;
+			int column;
+
+			string formatError(const string& what)
+			{
+				std::stringstream s;
+				s << what
+					<< " at " << line << ":" << column;
+				return s.str();
+			}
+		};
+
+		class CompilerState
+		{
+		public:
+			llvm::LLVMContext& context;
+			llvm::Module* module;
+			llvm::IRBuilder<> builder;
+			Position position;
+			llvm::Type* intType;
+			llvm::Value* xindex;
+			llvm::Value* yindex;
+			llvm::Value* zindex;
+			llvm::Type* realType;
+			llvm::Type* vectorType;
+			llvm::Type* pointerType;
+
+			CompilerState(llvm::LLVMContext& context, llvm::Module* module):
+				context(context),
+				module(module),
+				builder(context),
+				intType(NULL), xindex(NULL), yindex(NULL), zindex(NULL),
+				realType(NULL), vectorType(NULL), pointerType(NULL)
+			{
+			}
+
+			llvm::Type* getInternalType(char c)
+			{
+				switch (c)
+				{
+					case S::REAL:
+						return realType;
+
+					case S::VECTOR:
+						return vectorType;
+				}
+				assert(false);
+			}
+
+			llvm::Type* getExternalType(char c)
+			{
+				switch (c)
+				{
+					case S::REAL:
+						return realType;
+
+					case S::VECTOR:
+						return pointerType;
+				}
+				assert(false);
+			}
+		};
+
+		#include "calculon_symbol.h"
+	public:
+		#include "calculon_intrinsics.h"
+	private:
+		#include "calculon_lexer.h"
+		#include "calculon_compiler.h"
 
 	public:
-		Program(SymbolTable& symbols, const string& code, const string& signature):
-				_symbols(symbols),
-				_funcptr(NULL)
+		template <typename FuncType>
+		class Program
 		{
-			std::istringstream stream(code);
-			init(stream, signature);
-		}
+		private:
+			llvm::LLVMContext _context;
+			SymbolTable& _symbols;
+			llvm::Module* _module;
+			llvm::ExecutionEngine* _engine;
+			llvm::Function* _function;
+			FuncType* _funcptr;
 
-		Program(SymbolTable& symbols, std::istream& code, const string& signature):
-				_symbols(symbols),
-				_funcptr(NULL)
-		{
-			init(code, signature);
-		}
+		public:
+			typedef typename S::Real Real;
 
-		~Program()
-		{
-		}
-
-		operator FuncType* () const
-		{
-			return _funcptr;
-		}
-
-		void dump()
-		{
-			_module->dump();
-		}
-
-	private:
-
-	private:
-		void init(std::istream& codestream, const string& signature)
-		{
-			_module = new llvm::Module("Calculon Function", _context);
-
-			llvm::InitializeNativeTarget();
-
-			llvm::TargetOptions options;
-			options.PrintMachineCode = true;
-			options.UnsafeFPMath = true;
-			options.RealignStack = true;
-			options.LessPreciseFPMADOption = true;
-			options.GuaranteedTailCallOpt = true;
-			options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
-
-			string s;
-			_engine = llvm::EngineBuilder(_module)
-				.setErrorStr(&s)
-				.setOptLevel(llvm::CodeGenOpt::Aggressive)
-				.setTargetOptions(options)
-				.create();
-			if (!_engine)
-				throw CompilationException(s);
-			_engine->DisableLazyCompilation();
-//			_engine->DisableSymbolSearching();
-
-			typedef Compiler<Real> ThisCompiler;
-			ThisCompiler compiler(_context, _module);
-
-			/* Compile the program. */
-
-			std::istringstream signaturestream(signature);
-			FunctionSymbol* f = compiler.compile(signaturestream, codestream,
-					&_symbols);
-
-			/* Create the interface function from this signature. */
-
-			vector<VariableSymbol*>& arguments = f->arguments();
-			vector<llvm::Type*> externaltypes;
-
-			llvm::Type* returntype = compiler.getExternalType(f->returntype());
-			bool inputoffset = false;
-			if (f->returntype() == ThisCompiler::VECTOR)
+		public:
+			Program(SymbolTable& symbols, const string& code, const string& signature):
+					_symbols(symbols),
+					_funcptr(NULL)
 			{
-				/* Insert an argument at the front which is the return-by-
-				 * reference vector return value.
-				 */
-
-				externaltypes.push_back(compiler.getExternalType(ThisCompiler::VECTOR));
-				returntype = llvm::Type::getVoidTy(_context);
-				inputoffset = true;
+				std::istringstream stream(code);
+				init(stream, signature);
 			}
 
-			for (int i=0; i<arguments.size(); i++)
+			Program(SymbolTable& symbols, std::istream& code, const string& signature):
+					_symbols(symbols),
+					_funcptr(NULL)
 			{
-				VariableSymbol* symbol = arguments[i];
-				externaltypes.push_back(compiler.getExternalType(symbol->type()));
+				init(code, signature);
 			}
 
-			llvm::FunctionType* ft = llvm::FunctionType::get(
-					returntype, externaltypes, false);
-
-			_function = llvm::Function::Create(ft,
-					llvm::Function::ExternalLinkage,
-					"Entrypoint", _module);
-
-			llvm::BasicBlock* bb = llvm::BasicBlock::Create(_context, "entry", _function);
-			compiler.builder.SetInsertPoint(bb);
-
-			/* Marshal the external types to the internal types. */
-
-			vector<llvm::Value*> params;
-
+			~Program()
 			{
-				int i = 0;
-				llvm::Function::arg_iterator ii = _function->arg_begin();
-				if (inputoffset)
-					ii++;
-				while (ii != _function->arg_end())
+			}
+
+			operator FuncType* () const
+			{
+				return _funcptr;
+			}
+
+			void dump()
+			{
+				_module->dump();
+			}
+
+		private:
+
+		private:
+			void init(std::istream& codestream, const string& signature)
+			{
+				_module = new llvm::Module("Calculon Function", _context);
+
+				llvm::InitializeNativeTarget();
+
+				llvm::TargetOptions options;
+				options.PrintMachineCode = true;
+				options.UnsafeFPMath = true;
+				options.RealignStack = true;
+				options.LessPreciseFPMADOption = true;
+				options.GuaranteedTailCallOpt = true;
+				options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
+
+				string s;
+				_engine = llvm::EngineBuilder(_module)
+					.setErrorStr(&s)
+					.setOptLevel(llvm::CodeGenOpt::Aggressive)
+					.setTargetOptions(options)
+					.create();
+				if (!_engine)
+					throw CompilationException(s);
+				_engine->DisableLazyCompilation();
+	//			_engine->DisableSymbolSearching();
+
+				Compiler compiler(_context, _module);
+
+				/* Compile the program. */
+
+				std::istringstream signaturestream(signature);
+				FunctionSymbol* f = compiler.compile(signaturestream, codestream,
+						&_symbols);
+
+				/* Create the interface function from this signature. */
+
+				vector<VariableSymbol*>& arguments = f->arguments();
+				vector<llvm::Type*> externaltypes;
+
+				llvm::Type* returntype = compiler.getExternalType(f->returntype());
+				bool inputoffset = false;
+				if (f->returntype() == S::VECTOR)
 				{
-					llvm::Value* v = ii;
-					VariableSymbol* symbol = arguments[i];
+					/* Insert an argument at the front which is the return-by-
+					 * reference vector return value.
+					 */
 
-					v->setName(symbol->name());
-					if (symbol->type() == Compiler<Real>::VECTOR)
-						v = compiler.loadVector(v);
-
-					params.push_back(v);
-					i++;
-					ii++;
+					externaltypes.push_back(compiler.getExternalType(S::VECTOR));
+					returntype = llvm::Type::getVoidTy(_context);
+					inputoffset = true;
 				}
+
+				for (int i=0; i<arguments.size(); i++)
+				{
+					VariableSymbol* symbol = arguments[i];
+					externaltypes.push_back(compiler.getExternalType(symbol->type()));
+				}
+
+				llvm::FunctionType* ft = llvm::FunctionType::get(
+						returntype, externaltypes, false);
+
+				_function = llvm::Function::Create(ft,
+						llvm::Function::ExternalLinkage,
+						"Entrypoint", _module);
+
+				llvm::BasicBlock* bb = llvm::BasicBlock::Create(_context, "entry", _function);
+				compiler.builder.SetInsertPoint(bb);
+
+				/* Marshal the external types to the internal types. */
+
+				vector<llvm::Value*> params;
+
+				{
+					int i = 0;
+					llvm::Function::arg_iterator ii = _function->arg_begin();
+					if (inputoffset)
+						ii++;
+					while (ii != _function->arg_end())
+					{
+						llvm::Value* v = ii;
+						VariableSymbol* symbol = arguments[i];
+
+						v->setName(symbol->name());
+						if (symbol->type() == S::VECTOR)
+							v = compiler.loadVector(v);
+
+						params.push_back(v);
+						i++;
+						ii++;
+					}
+				}
+
+				/* Call the internal function. */
+
+				llvm::Value* retval = f->emitCall(compiler, params);
+
+				if (f->returntype() == S::VECTOR)
+				{
+					compiler.storeVector(retval, _function->arg_begin());
+					retval = NULL;
+				}
+
+				compiler.builder.CreateRet(retval);
+
+				generate_machine_code();
 			}
 
-			/* Call the internal function. */
+		private:
 
-			llvm::Value* retval = f->emitCall(compiler, params);
-
-			if (f->returntype() == ThisCompiler::VECTOR)
+			void generate_machine_code()
 			{
-				compiler.storeVector(retval, _function->arg_begin());
-				retval = NULL;
+				llvm::FunctionPassManager fpm(_module);
+				llvm::PassManager mpm;
+				llvm::PassManagerBuilder pmb;
+				pmb.OptLevel = 3;
+				pmb.populateFunctionPassManager(fpm);
+				pmb.populateModulePassManager(mpm);
+
+				fpm.doInitialization();
+				llvm::verifyFunction(*_function);
+				fpm.run(*_function);
+				mpm.run(*_module);
+
+				_funcptr = (FuncType*) _engine->getPointerToFunction(_function);
+				assert(_funcptr);
 			}
-
-			compiler.builder.CreateRet(retval);
-
-			generate_machine_code();
-		}
-
-	private:
-
-		void generate_machine_code()
-		{
-			llvm::FunctionPassManager fpm(_module);
-			llvm::PassManager mpm;
-			llvm::PassManagerBuilder pmb;
-			pmb.OptLevel = 3;
-			pmb.populateFunctionPassManager(fpm);
-			pmb.populateModulePassManager(mpm);
-
-			fpm.doInitialization();
-			llvm::verifyFunction(*_function);
-			fpm.run(*_function);
-			mpm.run(*_module);
-
-			_funcptr = (FuncType*) _engine->getPointerToFunction(_function);
-			assert(_funcptr);
-		}
+		};
 	};
 }
 

@@ -5,53 +5,12 @@
 #error "Don't include this, include calculon.h instead."
 #endif
 
-template <typename Real>
-class CompilerBase
-{
-};
-
-template <>
-class CompilerBase<double>
+class Compiler : public Allocator, public CompilerState
 {
 public:
-	enum
-	{
-		REAL = 'D'
-	};
-
-protected:
-	static llvm::Type* createRealType(llvm::LLVMContext& context)
-	{
-		return llvm::Type::getDoubleTy(context);
-	}
-};
-
-template <>
-class CompilerBase<float>
-{
-public:
-	enum
-	{
-		REAL = 'F'
-	};
-
-protected:
-	static llvm::Type* createRealType(llvm::LLVMContext& context)
-	{
-		return llvm::Type::getFloatTy(context);
-	}
-};
-
-template <typename Real>
-class Compiler : public CompilerBase<Real>, public Allocator,
-	public CompilerState
-{
-public:
-	using CompilerBase<Real>::REAL;
-	enum
-	{
-		VECTOR = 'V'
-	};
+	using CompilerState::builder;
+	using CompilerState::module;
+	using CompilerState::context;
 
 private:
 	class ASTNode;
@@ -60,7 +19,14 @@ private:
 	typedef Lexer<Real> L;
 	typedef pair<string, char> Argument;
 
-	using CompilerBase<Real>::createRealType;
+	using CompilerState::getInternalType;
+	using CompilerState::intType;
+	using CompilerState::xindex;
+	using CompilerState::yindex;
+	using CompilerState::zindex;
+	using CompilerState::realType;
+	using CompilerState::vectorType;
+	using CompilerState::pointerType;
 
 	class TypeException : public CompilationException
 	{
@@ -127,7 +93,7 @@ public:
 		xindex = llvm::ConstantInt::get(intType, 0);
 		yindex = llvm::ConstantInt::get(intType, 1);
 		zindex = llvm::ConstantInt::get(intType, 2);
-		realType = createRealType(context);
+		realType = S::createRealType(context);
 		vectorType = llvm::VectorType::get(realType, 4);
 
 		llvm::Type* structType = llvm::StructType::get(
@@ -530,7 +496,7 @@ private:
 					parent->getFrame()->symbolTable));
 
 			vector<VariableSymbol*>& arguments = function->arguments();
-			for (vector<VariableSymbol*>::const_iterator i = arguments.begin(),
+			for (typename vector<VariableSymbol*>::const_iterator i = arguments.begin(),
 					e = arguments.end(); i != e; i++)
 			{
 				symbolTable->add(*i);

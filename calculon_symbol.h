@@ -85,6 +85,8 @@ public:
 class CallableSymbol : public Symbol
 {
 public:
+	using Symbol::name;
+
 	CallableSymbol(const string& name):
 		Symbol(name)
 	{
@@ -133,6 +135,10 @@ class FunctionSymbol : public CallableSymbol
 	char _returntype;
 	llvm::Function* _function;
 
+	using CallableSymbol::checkParameterCount;
+	using CallableSymbol::typeCheckParameter;
+	using CallableSymbol::typeError;
+
 public:
 	FunctionSymbol(const string& name, const vector<VariableSymbol*>& arguments,
 			char returntype):
@@ -164,7 +170,7 @@ public:
 
 		int i = 1;
 		vector<llvm::Value*>::const_iterator pi = parameters.begin();
-		vector<VariableSymbol*>::const_iterator ai = _arguments.begin();
+		typename vector<VariableSymbol*>::const_iterator ai = _arguments.begin();
 		while (pi != parameters.end())
 		{
 			llvm::Value* v = *pi;
@@ -185,6 +191,10 @@ class IntrinsicFunctionSymbol : public CallableSymbol
 	int _arguments;
 
 public:
+	using CallableSymbol::checkParameterCount;
+	using CallableSymbol::typeCheckParameter;
+	using CallableSymbol::typeError;
+
 	IntrinsicFunctionSymbol(const string& name, int arguments):
 		CallableSymbol(name),
 		_arguments(arguments)
@@ -300,7 +310,7 @@ public:
 
 	Symbol* resolve(const string& name)
 	{
-		Symbols::const_iterator i = _symbols.find(name);
+		typename Symbols::const_iterator i = _symbols.find(name);
 		if (i == _symbols.end())
 			return SymbolTable::resolve(name);
 		return i->second;
