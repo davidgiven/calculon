@@ -237,8 +237,6 @@ namespace Calculon
 			}
 
 		private:
-
-		private:
 			void init(std::istream& codestream, const string& signature)
 			{
 				_module = new llvm::Module("Calculon Function", _context);
