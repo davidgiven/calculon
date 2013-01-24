@@ -133,7 +133,7 @@ namespace Calculon
 			}
 		};
 
-		class CompilerState
+		class CompilerState : public Allocator
 		{
 		public:
 			llvm::LLVMContext& context;
@@ -347,6 +347,8 @@ namespace Calculon
 
 			void generate_machine_code()
 			{
+//				_module->dump();
+
 				llvm::FunctionPassManager fpm(_module);
 				llvm::PassManager mpm;
 				llvm::PassManagerBuilder pmb;

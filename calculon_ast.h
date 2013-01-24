@@ -6,7 +6,6 @@
 #endif
 
 class ASTFrame;
-class ASTFunction;
 
 struct ASTNode : public Object
 {
@@ -51,6 +50,11 @@ struct ASTNode : public Object
 	{
 		return parent->getFrame();
 	}
+
+	virtual FunctionSymbol* getFunction()
+	{
+		return parent->getFunction();
+	}
 };
 
 struct ASTConstant : public ASTNode
@@ -76,6 +80,7 @@ struct ASTVariable : public ASTNode
 	ValuedSymbol* symbol;
 
 	using ASTNode::getFrame;
+	using ASTNode::getFunction;
 	using ASTNode::position;
 
 	ASTVariable(const Position& position, const string& id):
@@ -97,6 +102,10 @@ struct ASTVariable : public ASTNode
 			s << "attempt to get the value of '" << id << "', which is not a variable";
 			throw CompilationException(position.formatError(s.str()));
 		}
+
+		VariableSymbol* v = symbol->isVariable();
+		if (v)
+			symbol = getFunction()->importUpvalue(compiler, v);
 	}
 
 	llvm::Value* codegen(Compiler& compiler)
@@ -245,6 +254,7 @@ struct ASTDefineVariable : public ASTFrame
 	VariableSymbol* _symbol;
 	using ASTFrame::symbolTable;
 	using ASTNode::parent;
+	using ASTNode::getFunction;
 
 	ASTDefineVariable(const Position& position,
 			const string& id, char type,
@@ -261,7 +271,10 @@ struct ASTDefineVariable : public ASTFrame
 		symbolTable = compiler.retain(new SingletonSymbolTable(
 				parent->getFrame()->symbolTable));
 		_symbol = compiler.retain(new VariableSymbol(id, type));
+		_symbol->function = getFunction();
 		symbolTable->add(_symbol);
+
+		_symbol->function->locals[_symbol] = _symbol;
 
 		value->parent = parent;
 		value->resolveVariables(compiler);
@@ -293,6 +306,11 @@ struct ASTFunctionBody : public ASTFrame
 		body->parent = this;
 	}
 
+	FunctionSymbol* getFunction()
+	{
+		return function;
+	}
+
 	void resolveVariables(Compiler& compiler)
 	{
 		if (!symbolTable)
@@ -303,7 +321,9 @@ struct ASTFunctionBody : public ASTFrame
 		for (typename vector<VariableSymbol*>::const_iterator i = arguments.begin(),
 				e = arguments.end(); i != e; i++)
 		{
-			symbolTable->add(*i);
+			VariableSymbol* symbol = *i;
+			symbol->function = function;
+			symbolTable->add(symbol);
 		}
 
 		body->resolveVariables(compiler);
@@ -311,14 +331,30 @@ struct ASTFunctionBody : public ASTFrame
 
 	llvm::Value* codegen(Compiler& compiler)
 	{
-		/* Create the LLVM function type. */
+		/* Assemble the LLVM function type. */
 
 		const vector<VariableSymbol*>& arguments = function->arguments;
 		vector<llvm::Type*> llvmtypes;
-		for (int i=0; i<arguments.size(); i++)
+
+		/* Normal parameters... */
+
+		for (typename vector<VariableSymbol*>::const_iterator i = arguments.begin(),
+				e = arguments.end(); i != e; i++)
 		{
-			VariableSymbol* symbol = arguments[i];
-			llvmtypes.push_back(compiler.getInternalType(symbol->type));
+			llvmtypes.push_back(compiler.getInternalType((*i)->type));
+		}
+
+		/* ...and imported upvalues. */
+
+		for (typename FunctionSymbol::LocalsMap::const_iterator i = function->locals.begin(),
+				e = function->locals.end(); i != e; i++)
+		{
+			if (i->first != i->second)
+			{
+				VariableSymbol* symbol = i->second;
+				assert(symbol->value);
+				llvmtypes.push_back(symbol->value->getType());
+			}
 		}
 
 		llvm::Type* returntype = compiler.getInternalType(function->returntype);
@@ -335,17 +371,42 @@ struct ASTFunctionBody : public ASTFrame
 		/* Bind the argument symbols to their LLVM values. */
 
 		{
-			int i = 0;
-			for (llvm::Function::arg_iterator ii = f->arg_begin(),
-					ee = f->arg_end(); ii != ee; ii++)
-			{
-				llvm::Value* v = ii;
-				VariableSymbol* symbol = arguments[i];
+			llvm::Function::arg_iterator vi = f->arg_begin();
 
-				v->setName(symbol->name);
-				symbol->value = v;
-				i++;
+			/* First, normal parameters. */
+
+			typename vector<VariableSymbol*>::const_iterator ai = arguments.begin();
+			while (ai != arguments.end())
+			{
+				VariableSymbol* symbol = *ai;
+				assert(vi != f->arg_end());
+				vi->setName(symbol->name + "." + symbol->hash);
+				symbol->value = vi;
+
+				ai++;
+				vi++;
 			}
+
+			/* Now import any upvalues. */
+
+			typename FunctionSymbol::LocalsMap::const_iterator li = function->locals.begin();
+
+			while (li != function->locals.end())
+			{
+				if (li->first != li->second)
+				{
+					assert(vi != f->arg_end());
+					VariableSymbol* symbol = li->first;
+					vi->setName(symbol->name + "." + symbol->hash);
+					symbol->value = vi;
+
+					vi++;
+				}
+
+				li++;
+			}
+
+			assert(vi == f->arg_end());
 		}
 
 		/* Generate the code. */
@@ -376,6 +437,7 @@ struct ASTDefineFunction : public ASTFrame
 	ASTNode* body;
 
 	using ASTNode::parent;
+	using ASTNode::getFunction;
 	using ASTFrame::symbolTable;
 
 	ASTDefineFunction(const Position& position, FunctionSymbol* function,
@@ -391,6 +453,7 @@ struct ASTDefineFunction : public ASTFrame
 		symbolTable = compiler.retain(new SingletonSymbolTable(
 				parent->getFrame()->symbolTable));
 		symbolTable->add(function);
+		function->parent = getFunction();
 
 		definition->resolveVariables(compiler);
 		body->resolveVariables(compiler);

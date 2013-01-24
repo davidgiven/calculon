@@ -7,6 +7,8 @@
 
 class CallableSymbol;
 class ValuedSymbol;
+class VariableSymbol;
+class FunctionSymbol;
 
 class Symbol : public Object
 {
@@ -32,6 +34,11 @@ public:
 	{
 		return NULL;
 	}
+
+	virtual FunctionSymbol* isFunction()
+	{
+		return NULL;
+	}
 };
 
 class ValuedSymbol : public Symbol
@@ -50,18 +57,33 @@ public:
 	{
 		return this;
 	}
+
+	virtual VariableSymbol* isVariable()
+	{
+		return NULL;
+	}
 };
 
 class VariableSymbol : public ValuedSymbol
 {
 public:
 	const char type;
+	FunctionSymbol* function;
+	string hash;
 
 public:
 	VariableSymbol(const string& name, char type):
 		ValuedSymbol(name),
 		type(type)
 	{
+		std::stringstream s;
+		s << (uintptr_t)this;
+		hash = s.str();
+	}
+
+	VariableSymbol* isVariable()
+	{
+		return this;
 	}
 };
 
@@ -118,7 +140,12 @@ public:
 	const vector<VariableSymbol*> arguments;
 	const char returntype;
 	llvm::Function* function;
+	FunctionSymbol* parent; // parent function in the static scope
 
+	typedef map<VariableSymbol*, VariableSymbol*> LocalsMap;
+	LocalsMap locals;
+
+private:
 	using CallableSymbol::checkParameterCount;
 	using CallableSymbol::typeCheckParameter;
 	using CallableSymbol::typeError;
@@ -129,8 +156,20 @@ public:
 		CallableSymbol(name),
 		arguments(arguments),
 		returntype(returntype),
-		function(NULL)
+		function(NULL),
+		parent(NULL)
 	{
+		for (typename vector<VariableSymbol*>::const_iterator i = arguments.begin(),
+				e = arguments.end(); i != e; i++)
+		{
+			VariableSymbol* symbol = *i;
+			locals[symbol] = symbol;
+		}
+	}
+
+	FunctionSymbol* isFunction()
+	{
+		return this;
 	}
 
 	llvm::Value* emitCall(CompilerState& state,
@@ -138,10 +177,12 @@ public:
 	{
 		checkParameterCount(state, parameters, arguments.size());
 
+		/* Type-check the parameters. */
+
 		int i = 1;
-		vector<llvm::Value*>::const_iterator pi = parameters.begin();
 		typename vector<VariableSymbol*>::const_iterator ai = arguments.begin();
-		while (pi != parameters.end())
+		vector<llvm::Value*>::const_iterator pi = parameters.begin();
+		while (ai != arguments.end())
 		{
 			llvm::Value* v = *pi;
 			typeCheckParameter(state, i, v, (*ai)->type);
@@ -151,9 +192,43 @@ public:
 			ai++;
 		}
 
+		/* Assemble the actual list of parameters. */
+
+		vector<llvm::Value*> realparameters(parameters);
+		for (typename LocalsMap::const_iterator li = locals.begin(),
+				le = locals.end(); li != le; li++)
+		{
+			if (li->first != li->second)
+				realparameters.push_back(li->second->value);
+		}
+
 		assert(function);
-		return state.builder.CreateCall(function, parameters);
+		return state.builder.CreateCall(function, realparameters);
 	}
+
+	VariableSymbol* importUpvalue(CompilerState& compiler, VariableSymbol* symbol)
+	{
+		/* If this is already imported --- or is a local --- just use the
+		 * variable we already have.
+		 */
+
+		typename LocalsMap::const_iterator i = locals.find(symbol);
+		if (i != locals.end())
+			return i->second;
+
+		/* We need to import this symbol from the next function further up
+		 * in the static scope chain.
+		 */
+
+		assert(parent);
+		VariableSymbol* parentsymbol = parent->importUpvalue(compiler, symbol);
+		VariableSymbol* localsymbol = compiler.retain(
+				new VariableSymbol(symbol->name, symbol->type));
+		locals[localsymbol] = parentsymbol;
+
+		return localsymbol;
+	}
+
 };
 
 class IntrinsicFunctionSymbol : public CallableSymbol

@@ -5,7 +5,7 @@
 #error "Don't include this, include calculon.h instead."
 #endif
 
-class Compiler : public Allocator, public CompilerState
+class Compiler : public CompilerState
 {
 public:
 	using CompilerState::builder;
@@ -19,6 +19,7 @@ private:
 	typedef Lexer<Real> L;
 	typedef pair<string, char> Argument;
 
+	using CompilerState::retain;
 	using CompilerState::getInternalType;
 	using CompilerState::intType;
 	using CompilerState::xindex;
@@ -145,7 +146,7 @@ public:
 		parse_functionsignature(signaturelexer, arguments, returntype);
 		expect_eof(signaturelexer);
 
-		FunctionSymbol* symbol = retain(new FunctionSymbol("<toplevel>",
+		FunctionSymbol* functionsymbol = retain(new FunctionSymbol("<toplevel>",
 				arguments, returntype));
 
 		/* Create symbols and the LLVM type array for the function. */
@@ -155,6 +156,7 @@ public:
 		for (int i=0; i<arguments.size(); i++)
 		{
 			VariableSymbol* symbol = arguments[i];
+			symbol->function = functionsymbol;
 			symboltable.add(symbol);
 			llvmtypes.push_back(getInternalType(symbol->type));
 		}
@@ -162,7 +164,7 @@ public:
 		/* Compile the code to an AST. */
 
 		L codelexer(codestream);
-		ASTToplevel* ast = parse_toplevel(codelexer, symbol, &symboltable);
+		ASTToplevel* ast = parse_toplevel(codelexer, functionsymbol, &symboltable);
 		ast->resolveVariables(*this);
 
 		/* Create the LLVM function itself. */
@@ -173,7 +175,7 @@ public:
 		llvm::Function* f = llvm::Function::Create(ft,
 				llvm::Function::InternalLinkage,
 				"toplevel", module);
-		symbol->function = f;
+		functionsymbol->function = f;
 
 		/* Bind the argument symbols to their LLVM values. */
 
@@ -197,7 +199,7 @@ public:
 		builder.SetInsertPoint(bb);
 		ast->codegen(*this);
 
-		return symbol;
+		return functionsymbol;
 	}
 
 private:

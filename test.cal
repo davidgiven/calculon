@@ -1,1 +1,6 @@
-exp(sqrt(x))
+let y = 1;
+let foo() =
+	let z = 2;
+	let bar() = fmin(fmin(x, y), z);
+	bar();
+foo()
