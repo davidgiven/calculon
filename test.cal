@@ -1,1 +1,3 @@
-(x+y)*z
+let sqrt2 = p.x*p.x + p.y*p.y + p.z*p.z;
+sqrt(sqrt2)
+

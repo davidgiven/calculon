@@ -155,7 +155,7 @@ class StandardSymbolTable : public MultipleSymbolTable
 				const vector<llvm::Value*>& parameters)
 		{
 			return state.builder.CreateExtractElement(
-					parameters[0], state.xindex);
+					parameters[0], state.yindex);
 		}
 	}
 	_yMethod;
@@ -178,7 +178,7 @@ class StandardSymbolTable : public MultipleSymbolTable
 				const vector<llvm::Value*>& parameters)
 		{
 			return state.builder.CreateExtractElement(
-					parameters[0], state.xindex);
+					parameters[0], state.zindex);
 		}
 	}
 	_zMethod;
