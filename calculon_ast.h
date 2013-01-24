@@ -101,7 +101,7 @@ struct ASTVariable : public ASTNode
 
 	llvm::Value* codegen(Compiler& compiler)
 	{
-		return symbol->value();
+		return symbol->value;
 	}
 };
 
@@ -271,7 +271,7 @@ struct ASTDefineVariable : public ASTFrame
 	llvm::Value* codegen(Compiler& compiler)
 	{
 		llvm::Value* v = value->codegen(compiler);
-		_symbol->setValue(v);
+		_symbol->value = v;
 
 		return body->codegen(compiler);
 	}
@@ -299,7 +299,7 @@ struct ASTFunctionBody : public ASTFrame
 			symbolTable = compiler.retain(new MultipleSymbolTable(
 				parent->getFrame()->symbolTable));
 
-		vector<VariableSymbol*>& arguments = function->arguments();
+		const vector<VariableSymbol*>& arguments = function->arguments;
 		for (typename vector<VariableSymbol*>::const_iterator i = arguments.begin(),
 				e = arguments.end(); i != e; i++)
 		{
@@ -313,15 +313,15 @@ struct ASTFunctionBody : public ASTFrame
 	{
 		/* Create the LLVM function type. */
 
-		vector<VariableSymbol*>& arguments = function->arguments();
+		const vector<VariableSymbol*>& arguments = function->arguments;
 		vector<llvm::Type*> llvmtypes;
 		for (int i=0; i<arguments.size(); i++)
 		{
 			VariableSymbol* symbol = arguments[i];
-			llvmtypes.push_back(compiler.getInternalType(symbol->type()));
+			llvmtypes.push_back(compiler.getInternalType(symbol->type));
 		}
 
-		llvm::Type* returntype = compiler.getInternalType(function->returntype());
+		llvm::Type* returntype = compiler.getInternalType(function->returntype);
 		llvm::FunctionType* ft = llvm::FunctionType::get(
 				returntype, llvmtypes, false);
 
@@ -329,8 +329,8 @@ struct ASTFunctionBody : public ASTFrame
 
 		llvm::Function* f = llvm::Function::Create(ft,
 				llvm::Function::InternalLinkage,
-				function->name(), compiler.module);
-		function->setFunction(f);
+				function->name, compiler.module);
+		function->function = f;
 
 		/* Bind the argument symbols to their LLVM values. */
 
@@ -342,8 +342,8 @@ struct ASTFunctionBody : public ASTFrame
 				llvm::Value* v = ii;
 				VariableSymbol* symbol = arguments[i];
 
-				v->setName(symbol->name());
-				symbol->setValue(v);
+				v->setName(symbol->name);
+				symbol->value = v;
 				i++;
 			}
 		}

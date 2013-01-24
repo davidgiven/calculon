@@ -36,7 +36,7 @@ class StandardSymbolTable : public MultipleSymbolTable
 		{
 			llvm::Type* t = inputTypes[0];
 			const char* suffix = S::chooseDoubleOrFloat("", "f");
-			return name() + suffix;
+			return name + suffix;
 		}
 	};
 

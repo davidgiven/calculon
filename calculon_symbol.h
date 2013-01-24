@@ -10,21 +10,17 @@ class ValuedSymbol;
 
 class Symbol : public Object
 {
-	string _name;
+public:
+	const string name;
 
 public:
 	Symbol(const string& name):
-		_name(name)
+		name(name)
 	{
 	}
 
 	virtual ~Symbol()
 	{
-	}
-
-	const string& name() const
-	{
-		return _name;
 	}
 
 	virtual ValuedSymbol* isValued()
@@ -40,12 +36,13 @@ public:
 
 class ValuedSymbol : public Symbol
 {
-	llvm::Value* _value;
+public:
+	llvm::Value* value;
 
 public:
 	ValuedSymbol(const string& name):
 		Symbol(name),
-		_value(NULL)
+		value(NULL)
 	{
 	}
 
@@ -53,32 +50,18 @@ public:
 	{
 		return this;
 	}
-
-	void setValue(llvm::Value* value)
-	{
-		_value = value;
-	}
-
-	llvm::Value* value() const
-	{
-		return _value;
-	}
 };
 
 class VariableSymbol : public ValuedSymbol
 {
-	char _type;
+public:
+	const char type;
 
 public:
 	VariableSymbol(const string& name, char type):
 		ValuedSymbol(name),
-		_type(type)
+		type(type)
 	{
-	}
-
-	char type() const
-	{
-		return _type;
 	}
 };
 
@@ -103,7 +86,7 @@ public:
 		if (parameters.size() != count)
 		{
 			std::stringstream s;
-			s << "attempt to call function '" << name() <<
+			s << "attempt to call function '" << name <<
 					"' with the wrong number of parameters";
 			throw CompilationException(state.position.formatError(s.str()));
 		}
@@ -113,7 +96,7 @@ public:
 			int index, llvm::Value* argument, char type)
 	{
 		std::stringstream s;
-		s << "call to parameter " << index << " of function '" << name()
+		s << "call to parameter " << index << " of function '" << name
 				<< "' with wrong type";
 		throw CompilationException(state.position.formatError(s.str()));
 	}
@@ -131,9 +114,10 @@ public:
 
 class FunctionSymbol : public CallableSymbol
 {
-	vector<VariableSymbol*> _arguments;
-	char _returntype;
-	llvm::Function* _function;
+public:
+	const vector<VariableSymbol*> arguments;
+	const char returntype;
+	llvm::Function* function;
 
 	using CallableSymbol::checkParameterCount;
 	using CallableSymbol::typeCheckParameter;
@@ -143,52 +127,38 @@ public:
 	FunctionSymbol(const string& name, const vector<VariableSymbol*>& arguments,
 			char returntype):
 		CallableSymbol(name),
-		_arguments(arguments),
-		_returntype(returntype)
+		arguments(arguments),
+		returntype(returntype),
+		function(NULL)
 	{
-	}
-
-	vector<VariableSymbol*>& arguments()
-	{
-		return _arguments;
-	}
-
-	char returntype()
-	{
-		return _returntype;
-	}
-
-	void setFunction(llvm::Function* f)
-	{
-		_function = f;
 	}
 
 	llvm::Value* emitCall(CompilerState& state,
 			const vector<llvm::Value*>& parameters)
 	{
-		checkParameterCount(state, parameters, _arguments.size());
+		checkParameterCount(state, parameters, arguments.size());
 
 		int i = 1;
 		vector<llvm::Value*>::const_iterator pi = parameters.begin();
-		typename vector<VariableSymbol*>::const_iterator ai = _arguments.begin();
+		typename vector<VariableSymbol*>::const_iterator ai = arguments.begin();
 		while (pi != parameters.end())
 		{
 			llvm::Value* v = *pi;
-			typeCheckParameter(state, i, v, (*ai)->type());
+			typeCheckParameter(state, i, v, (*ai)->type);
 
 			i++;
 			pi++;
 			ai++;
 		}
 
-		assert(_function);
-		return state.builder.CreateCall(_function, parameters);
+		assert(function);
+		return state.builder.CreateCall(function, parameters);
 	}
 };
 
 class IntrinsicFunctionSymbol : public CallableSymbol
 {
-	int _arguments;
+	int arguments;
 
 public:
 	using CallableSymbol::checkParameterCount;
@@ -197,14 +167,14 @@ public:
 
 	IntrinsicFunctionSymbol(const string& name, int arguments):
 		CallableSymbol(name),
-		_arguments(arguments)
+		arguments(arguments)
 	{
 	}
 
 	llvm::Value* emitCall(CompilerState& state,
 			const vector<llvm::Value*>& parameters)
 	{
-		checkParameterCount(state, parameters, _arguments);
+		checkParameterCount(state, parameters, arguments);
 
 		int i = 1;
 		vector<llvm::Value*>::const_iterator pi = parameters.begin();
@@ -282,7 +252,7 @@ public:
 
 	Symbol* resolve(const string& name)
 	{
-		if (_symbol && (_symbol->name() == name))
+		if (_symbol && (_symbol->name == name))
 			return _symbol;
 		return SymbolTable::resolve(name);
 	}
@@ -305,7 +275,7 @@ public:
 
 	void add(Symbol* symbol)
 	{
-		_symbols[symbol->name()] = symbol;
+		_symbols[symbol->name] = symbol;
 	}
 
 	Symbol* resolve(const string& name)

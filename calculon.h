@@ -272,12 +272,12 @@ namespace Calculon
 
 				/* Create the interface function from this signature. */
 
-				vector<VariableSymbol*>& arguments = f->arguments();
+				const vector<VariableSymbol*>& arguments = f->arguments;
 				vector<llvm::Type*> externaltypes;
 
-				llvm::Type* returntype = compiler.getExternalType(f->returntype());
+				llvm::Type* returntype = compiler.getExternalType(f->returntype);
 				bool inputoffset = false;
-				if (f->returntype() == S::VECTOR)
+				if (f->returntype == S::VECTOR)
 				{
 					/* Insert an argument at the front which is the return-by-
 					 * reference vector return value.
@@ -291,7 +291,7 @@ namespace Calculon
 				for (int i=0; i<arguments.size(); i++)
 				{
 					VariableSymbol* symbol = arguments[i];
-					externaltypes.push_back(compiler.getExternalType(symbol->type()));
+					externaltypes.push_back(compiler.getExternalType(symbol->type));
 				}
 
 				llvm::FunctionType* ft = llvm::FunctionType::get(
@@ -318,8 +318,8 @@ namespace Calculon
 						llvm::Value* v = ii;
 						VariableSymbol* symbol = arguments[i];
 
-						v->setName(symbol->name());
-						if (symbol->type() == S::VECTOR)
+						v->setName(symbol->name);
+						if (symbol->type == S::VECTOR)
 							v = compiler.loadVector(v);
 
 						params.push_back(v);
@@ -332,7 +332,7 @@ namespace Calculon
 
 				llvm::Value* retval = f->emitCall(compiler, params);
 
-				if (f->returntype() == S::VECTOR)
+				if (f->returntype == S::VECTOR)
 				{
 					compiler.storeVector(retval, _function->arg_begin());
 					retval = NULL;

@@ -156,7 +156,7 @@ public:
 		{
 			VariableSymbol* symbol = arguments[i];
 			symboltable.add(symbol);
-			llvmtypes.push_back(getInternalType(symbol->type()));
+			llvmtypes.push_back(getInternalType(symbol->type));
 		}
 
 		/* Compile the code to an AST. */
@@ -173,7 +173,7 @@ public:
 		llvm::Function* f = llvm::Function::Create(ft,
 				llvm::Function::InternalLinkage,
 				"toplevel", module);
-		symbol->setFunction(f);
+		symbol->function = f;
 
 		/* Bind the argument symbols to their LLVM values. */
 
@@ -185,8 +185,8 @@ public:
 				llvm::Value* v = ii;
 				VariableSymbol* symbol = arguments[i];
 
-				v->setName(symbol->name());
-				symbol->setValue(v);
+				v->setName(symbol->name);
+				symbol->value = v;
 				i++;
 			}
 		}
