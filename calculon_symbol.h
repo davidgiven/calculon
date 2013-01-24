@@ -267,10 +267,13 @@ public:
 		llvm::FunctionType* ft = llvm::FunctionType::get(
 				returnType(llvmtypes), llvmtypes, false);
 
-		llvm::Function* f = llvm::Function::Create(ft,
-				llvm::Function::ExternalLinkage,
-				intrinsicName(llvmtypes), state.module);
-		f->setDoesNotAccessMemory();
+		llvm::Constant* f = state.module->getOrInsertFunction(
+				intrinsicName(llvmtypes), ft,
+				llvm::AttrListPtr::get(state.context,
+					llvm::AttributeWithIndex::get(
+							state.context,
+							llvm::AttrListPtr::FunctionIndex,
+							llvm::Attributes::ReadNone)));
 
 		return state.builder.CreateCall(f, parameters);
 	}
