@@ -19,8 +19,11 @@ public:
 		EQUALS,
 		OPENPAREN,
 		CLOSEPAREN,
+		OPENBLOCK,
+		CLOSEBLOCK,
 		COMMA,
 		COLON,
+		SEMICOLON,
 		DOT
 	};
 
@@ -204,12 +207,18 @@ private:
 			_token = OPENPAREN;
 		else if (_idValue == ")")
 			_token = CLOSEPAREN;
+		else if (_idValue == "[")
+			_token = OPENBLOCK;
+		else if (_idValue == "]")
+			_token = CLOSEBLOCK;
 		else if (_idValue == ":")
 			_token = COLON;
 		else if (_idValue == ",")
 			_token = COMMA;
 		else if (_idValue == ".")
 			_token = DOT;
+		else if (_idValue == ";")
+			_token = SEMICOLON;
 		else
 			_token = OPERATOR;
 	}

@@ -29,6 +29,8 @@ private:
 	using CompilerState::vectorType;
 	using CompilerState::pointerType;
 
+	map<string, int> _operatorPrecedence;
+
 	class TypeException : public CompilationException
 	{
 	public:
@@ -100,6 +102,11 @@ public:
 		llvm::Type* structType = llvm::StructType::get(
 				realType, realType, realType, NULL);
 		pointerType = llvm::PointerType::get(structType, 0);
+
+		_operatorPrecedence["+"] = 10;
+		_operatorPrecedence["-"] = 10;
+		_operatorPrecedence["*"] = 20;
+		_operatorPrecedence["/"] = 20;
 	}
 
 	char llvmToType(llvm::Type* t)
@@ -358,13 +365,14 @@ private:
 				return v;
 			}
 
+			case L::OPENBLOCK:
+				return parse_vector(lexer);
+
 			case L::OPERATOR:
 			case L::IDENTIFIER:
 			{
 				const string& id = lexer.id();
-				if (id == "<")
-					return parse_vector(lexer);
-				else if (id == "let")
+				if (id == "let")
 					return parse_let(lexer);
 				return parse_variable_or_function_call(lexer);
 			}
@@ -385,8 +393,11 @@ private:
 
 			string id;
 			parse_identifier(lexer, id);
-			if ((id == "x") || (id == "y") || (id == "z"))
-				return retain(new ASTExtract(position, value, id));
+
+			vector<ASTNode*> parameters;
+			parameters.push_back(value);
+			return retain(new ASTFunctionCall(position, "method "+id,
+					parameters));
 		}
 
 		return value;
@@ -404,16 +415,47 @@ private:
 				lexer.next();
 
 				ASTNode* value = parse_tight(lexer);
-				return retain(new ASTUnary(position, id, value));
+				vector<ASTNode*> parameters;
+				parameters.push_back(value);
+				return retain(new ASTFunctionCall(position, "method "+id,
+						parameters));
 			}
 		}
 
 		return parse_tight(lexer);
 	}
 
+	ASTNode* parse_binary(L& lexer, int precedence)
+	{
+		ASTNode* lhs = parse_unary(lexer);
+
+		while (lexer.token() == L::OPERATOR)
+		{
+			Position position = lexer.position();
+			string id = lexer.id();
+			int p = _operatorPrecedence[id];
+			if (p == 0)
+				lexer.error("unrecognised operator");
+
+			if (p < precedence)
+				break;
+
+			lexer.next();
+			ASTNode* rhs = parse_binary(lexer, p);
+
+			vector<ASTNode*> parameters;
+			parameters.push_back(lhs);
+			parameters.push_back(rhs);
+			lhs = retain(new ASTFunctionCall(position, "method "+id,
+					parameters));
+		}
+
+		return lhs;
+	}
+
 	ASTNode* parse_expression(L& lexer)
 	{
-		return parse_unary(lexer);
+		return parse_binary(lexer, 0);
 	}
 
 	ASTFrame* parse_let(L& lexer)
@@ -443,7 +485,7 @@ private:
 			ASTNode* value = parse_expression(lexer);
 			ASTFunctionBody* definition = retain(
 					new ASTFunctionBody(position, f, value));
-			expect_operator(lexer, ";");
+			expect(lexer, L::SEMICOLON);
 			ASTNode* body = parse_expression(lexer);
 			return retain(new ASTDefineFunction(position, f, definition, body));
 		}
@@ -453,7 +495,7 @@ private:
 
 			expect_operator(lexer, "=");
 			ASTNode* value = parse_expression(lexer);
-			expect_operator(lexer, ";");
+			expect(lexer, L::SEMICOLON);
 			ASTNode* body = parse_expression(lexer);
 			return retain(new ASTDefineVariable(position, id, returntype,
 					value, body));
@@ -464,13 +506,13 @@ private:
 	{
 		Position position = lexer.position();
 
-		expect_operator(lexer, "<");
+		expect(lexer, L::OPENBLOCK);
 		ASTNode* x = parse_expression(lexer);
 		expect(lexer, L::COMMA);
 		ASTNode* y = parse_expression(lexer);
 		expect(lexer, L::COMMA);
 		ASTNode* z = parse_expression(lexer);
-		expect_operator(lexer, ">");
+		expect(lexer, L::CLOSEBLOCK);
 
 		return retain(new ASTVector(position, x, y, z));
 	}

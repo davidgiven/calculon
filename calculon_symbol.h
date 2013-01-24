@@ -102,7 +102,7 @@ public:
 		return this;
 	}
 
-	void checkParameterCount(CompilerState& state,
+	virtual void checkParameterCount(CompilerState& state,
 			const vector<llvm::Value*>& parameters, int count)
 	{
 		if (parameters.size() != count)
@@ -231,6 +231,126 @@ public:
 
 };
 
+class BitcodeSymbol : public CallableSymbol
+{
+	int arguments;
+
+public:
+	using CallableSymbol::checkParameterCount;
+	using CallableSymbol::typeCheckParameter;
+	using CallableSymbol::typeError;
+
+	BitcodeSymbol(const string& name, int arguments):
+		CallableSymbol(name),
+		arguments(arguments)
+	{
+	}
+
+	llvm::Value* emitCall(CompilerState& state,
+			const vector<llvm::Value*>& parameters)
+	{
+		checkParameterCount(state, parameters, arguments);
+
+		int i = 1;
+		vector<llvm::Value*>::const_iterator pi = parameters.begin();
+		vector<llvm::Type*> llvmtypes;
+		while (pi != parameters.end())
+		{
+			llvm::Value* v = *pi;
+			typeCheckParameter(state, i, v, 0);
+			llvmtypes.push_back(v->getType());
+
+			i++;
+			pi++;
+		}
+
+		return emitBitcode(state, parameters);
+	}
+
+	virtual llvm::Type* returnType(CompilerState& state,
+			const vector<llvm::Type*>& inputTypes) = 0;
+	virtual llvm::Value* emitBitcode(CompilerState& state,
+			const vector<llvm::Value*>& parameters) = 0;
+};
+
+class BitcodeVectorSymbol : public BitcodeSymbol
+{
+	using CallableSymbol::typeError;
+
+public:
+	BitcodeVectorSymbol(string id):
+		BitcodeSymbol(id, 1)
+	{
+	}
+
+	void typeCheckParameter(CompilerState& state,
+				int index, llvm::Value* argument, char type)
+	{
+		if (argument->getType() != state.vectorType)
+			typeError(state, index, argument, type);
+	}
+};
+
+class BitcodeRealOrVectorSymbol : public BitcodeSymbol
+{
+	using CallableSymbol::typeError;
+
+public:
+	BitcodeRealOrVectorSymbol(string id, int parameters):
+		BitcodeSymbol(id, parameters)
+	{
+	}
+
+	void typeCheckParameter(CompilerState& state,
+				int index, llvm::Value* argument, char type)
+	{
+		if ((argument->getType() != state.realType) &&
+			(argument->getType() != state.vectorType))
+			typeError(state, index, argument, type);
+	}
+
+	llvm::Type* returnType(CompilerState& state,
+			const vector<llvm::Type*>& inputTypes)
+	{
+		return inputTypes[0];
+	}
+};
+
+class BitcodeRealOrVectorHomogeneousSymbol : public BitcodeRealOrVectorSymbol
+{
+	llvm::Type* firsttype;
+
+	using Symbol::name;
+public:
+	BitcodeRealOrVectorHomogeneousSymbol(string id, int parameters):
+		BitcodeRealOrVectorSymbol(id, parameters),
+		firsttype(NULL)
+	{
+	}
+
+	void typeCheckParameter(CompilerState& state,
+				int index, llvm::Value* argument, char type)
+	{
+		if (index == 1)
+		{
+			firsttype = argument->getType();
+		}
+		else
+		{
+			if (argument->getType() != firsttype)
+			{
+				std::stringstream s;
+				s << "parameters to " << name
+						<< " are not all the same type";
+				throw CompilationException(state.position.formatError(s.str()));
+			}
+		}
+
+		return BitcodeRealOrVectorSymbol::typeCheckParameter(state, index,
+				argument, type);
+	}
+};
+
 class IntrinsicFunctionSymbol : public CallableSymbol
 {
 	int arguments;
@@ -265,7 +385,7 @@ public:
 		}
 
 		llvm::FunctionType* ft = llvm::FunctionType::get(
-				returnType(llvmtypes), llvmtypes, false);
+				returnType(state, llvmtypes), llvmtypes, false);
 
 		llvm::Constant* f = state.module->getOrInsertFunction(
 				intrinsicName(llvmtypes), ft,
@@ -278,7 +398,8 @@ public:
 		return state.builder.CreateCall(f, parameters);
 	}
 
-	virtual llvm::Type* returnType(const vector<llvm::Type*>& inputTypes) = 0;
+	virtual llvm::Type* returnType(CompilerState& state,
+			const vector<llvm::Type*>& inputTypes) = 0;
 	virtual string intrinsicName(const vector<llvm::Type*>& inputTypes) = 0;
 };
 
