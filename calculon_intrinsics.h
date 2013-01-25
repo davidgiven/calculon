@@ -58,41 +58,14 @@ class StandardSymbolTable : public MultipleSymbolTable
 	}
 	_subMethod;
 
-	class MulMethod : public BitcodeSymbol
+	class MulMethod : public BitcodeRealOrVectorArraySymbol
 	{
-		using CallableSymbol::typeError;
+		using BitcodeRealOrVectorArraySymbol::convertRHS;
 
 	public:
 		MulMethod():
-			BitcodeSymbol("method *", 2)
+			BitcodeRealOrVectorArraySymbol("method *", 2)
 		{
-		}
-
-		void typeCheckParameter(CompilerState& state,
-					int index, llvm::Value* argument, char type)
-		{
-			llvm::Type* t = argument->getType();
-			switch (index)
-			{
-				case 1:
-					if ((t != state.realType) && (t != state.vectorType))
-						typeError(state, index, argument, type);
-					break;
-
-				case 2:
-					if (t != state.realType)
-						typeError(state, index, argument, type);
-					break;
-
-				default:
-					assert(false);
-			}
-		}
-
-		llvm::Type* returnType(CompilerState& state,
-				const vector<llvm::Type*>& inputTypes)
-		{
-			return inputTypes[0];
 		}
 
 		llvm::Value* emitBitcode(CompilerState& state,
@@ -100,19 +73,105 @@ class StandardSymbolTable : public MultipleSymbolTable
 		{
 			llvm::Value* lhs = parameters[0];
 			llvm::Value* rhs = parameters[1];
-			if ((lhs->getType() == state.vectorType) && (rhs->getType() == state.realType))
-			{
-				llvm::Value* v = llvm::UndefValue::get(state.vectorType);
-				v = state.builder.CreateInsertElement(v, rhs, state.xindex);
-				v = state.builder.CreateInsertElement(v, rhs, state.yindex);
-				v = state.builder.CreateInsertElement(v, rhs, state.zindex);
-				rhs = v;
-			}
+			rhs = convertRHS(state, lhs, rhs);
 
 			return state.builder.CreateFMul(lhs, rhs);
 		}
 	}
 	_mulMethod;
+
+	class DivMethod : public BitcodeRealOrVectorArraySymbol
+	{
+		using BitcodeRealOrVectorArraySymbol::convertRHS;
+
+	public:
+		DivMethod():
+			BitcodeRealOrVectorArraySymbol("method /", 2)
+		{
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+					const vector<llvm::Value*>& parameters)
+		{
+			llvm::Value* lhs = parameters[0];
+			llvm::Value* rhs = parameters[1];
+			rhs = convertRHS(state, lhs, rhs);
+
+			return state.builder.CreateFDiv(lhs, rhs);
+		}
+	}
+	_divMethod;
+
+	class Length2Method : public BitcodeVectorSymbol
+	{
+	public:
+		Length2Method():
+			BitcodeVectorSymbol("method length2")
+		{
+		}
+
+		llvm::Type* returnType(CompilerState& state,
+				const vector<llvm::Type*>& inputTypes)
+		{
+			return state.realType;
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+				const vector<llvm::Value*>& parameters)
+		{
+			llvm::Value* v = parameters[0];
+			v = state.builder.CreateFMul(v, v);
+			llvm::Value* x = state.builder.CreateExtractElement(
+					v, state.xindex);
+			llvm::Value* y = state.builder.CreateExtractElement(
+					v, state.yindex);
+			llvm::Value* z = state.builder.CreateExtractElement(
+					v, state.zindex);
+
+			v = state.builder.CreateFAdd(x, y);
+			v = state.builder.CreateFAdd(v, z);
+			return v;
+		}
+	}
+	_length2Method;
+
+	class LengthMethod : public BitcodeVectorSymbol
+	{
+	public:
+		LengthMethod():
+			BitcodeVectorSymbol("method length")
+		{
+		}
+
+		llvm::Type* returnType(CompilerState& state,
+				const vector<llvm::Type*>& inputTypes)
+		{
+			return state.realType;
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+				const vector<llvm::Value*>& parameters)
+		{
+			llvm::Value* v = parameters[0];
+			v = state.builder.CreateFMul(v, v);
+			llvm::Value* x = state.builder.CreateExtractElement(
+					v, state.xindex);
+			llvm::Value* y = state.builder.CreateExtractElement(
+					v, state.yindex);
+			llvm::Value* z = state.builder.CreateExtractElement(
+					v, state.zindex);
+
+			v = state.builder.CreateFAdd(x, y);
+			v = state.builder.CreateFAdd(v, z);
+
+			llvm::Constant* f = state.module->getOrInsertFunction(
+					S::chooseDoubleOrFloat("llvm.sqrt.f64", "llvm.sqrt.f32"),
+					state.realType, NULL);
+
+			return state.builder.CreateCall(f, v);
+		}
+	}
+	_lengthMethod;
 
 	class XMethod : public BitcodeVectorSymbol
 	{
@@ -238,6 +297,9 @@ public:
 		add(&_addMethod);
 		add(&_subMethod);
 		add(&_mulMethod);
+		add(&_divMethod);
+		add(&_length2Method);
+		add(&_lengthMethod);
 		add(&_xMethod);
 		add(&_yMethod);
 		add(&_zMethod);

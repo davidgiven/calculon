@@ -351,6 +351,56 @@ public:
 	}
 };
 
+class BitcodeRealOrVectorArraySymbol : public BitcodeSymbol
+{
+	using CallableSymbol::typeError;
+
+public:
+	BitcodeRealOrVectorArraySymbol(const string& id, int parameters):
+		BitcodeSymbol(id, parameters)
+	{
+	}
+
+	void typeCheckParameter(CompilerState& state,
+				int index, llvm::Value* argument, char type)
+	{
+		llvm::Type* t = argument->getType();
+		switch (index)
+		{
+			case 1:
+				if ((t != state.realType) && (t != state.vectorType))
+					typeError(state, index, argument, type);
+				break;
+
+			default:
+				if (t != state.realType)
+					typeError(state, index, argument, type);
+				break;
+		}
+	}
+
+	llvm::Type* returnType(CompilerState& state,
+			const vector<llvm::Type*>& inputTypes)
+	{
+		return inputTypes[0];
+	}
+
+	llvm::Value* convertRHS(CompilerState& state, llvm::Value* lhs,
+			llvm::Value* rhs)
+	{
+		if ((lhs->getType() == state.vectorType) && (rhs->getType() == state.realType))
+		{
+			llvm::Value* v = llvm::UndefValue::get(state.vectorType);
+			v = state.builder.CreateInsertElement(v, rhs, state.xindex);
+			v = state.builder.CreateInsertElement(v, rhs, state.yindex);
+			v = state.builder.CreateInsertElement(v, rhs, state.zindex);
+			rhs = v;
+		}
+
+		return rhs;
+	}
+};
+
 class IntrinsicFunctionSymbol : public CallableSymbol
 {
 	int arguments;
