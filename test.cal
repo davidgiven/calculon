@@ -1,7 +1,8 @@
-let distance_from_origin(p:vector) = sqrt(p.x*p.x + p.y*p.y + p.z*p.z);
-let altitude(p:vector) = distance_from_origin(p) - 1740;
-let normalise(p:vector):vector = p / p.length;
-let dot(a:vector, b:vector) = a.x*b.x + a.y*b.y + a.z*b.z; 
-let n = dot(p, p);
-[n,n,n]
+let quadratic(a, b, c):vector =
+	let f = sqrt(b*b - 4*a*c);
+	let s1 = (-b + f) / (2*a);
+	let s2 = (-b - f) / (2*a);
+	[s1, s2, 0];
 
+let q: vector = quadratic(x, y, z);
+q.x - q.y

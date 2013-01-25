@@ -14,17 +14,14 @@ int main(int argc, const char* argv[])
 
 	Compiler::StandardSymbolTable symbols;
 
-	typedef void TestFunc(Vector* v, Vector* v1, Vector* v2);
+	typedef Real TestFunc(Real x, Real y, Real z);
 	std::ifstream code("test.cal");
-	Compiler::Program<TestFunc> func(symbols, code, "(p:vector):vector");
+	Compiler::Program<TestFunc> func(symbols, code, "(x,y,z)");
 	std::cout << "size of Program object: " << sizeof(func) << "\n";
 	func.dump();
 
-	Vector v;
-	Vector v1 = {1, 2, 3};
-	Vector v2 = {4, 5, 6};
-	func(&v, &v1, &v2);
-	std::cout << "v={" << v.x << ", " << v.y << ", " << v.z << "};\n";
+	Real result = func(1, 2, 3);
+	std::cout << "result=" << result << "\n";
 
 	return 0;
 }

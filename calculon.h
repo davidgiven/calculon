@@ -23,6 +23,7 @@
 #include "llvm/DataLayout.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 namespace Calculon
@@ -354,6 +355,8 @@ namespace Calculon
 				llvm::PassManagerBuilder pmb;
 				pmb.OptLevel = 3;
 				pmb.populateFunctionPassManager(fpm);
+
+				pmb.Inliner = llvm::createFunctionInliningPass(275);
 				pmb.populateModulePassManager(mpm);
 
 				fpm.doInitialization();
