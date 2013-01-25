@@ -28,6 +28,7 @@ private:
 	using CompilerState::realType;
 	using CompilerState::vectorType;
 	using CompilerState::pointerType;
+	using CompilerState::booleanType;
 
 	map<string, int> _operatorPrecedence;
 
@@ -98,15 +99,22 @@ public:
 		zindex = llvm::ConstantInt::get(intType, 2);
 		realType = S::createRealType(context);
 		vectorType = llvm::VectorType::get(realType, 4);
+		booleanType = llvm::IntegerType::get(context, 1);
 
 		llvm::Type* structType = llvm::StructType::get(
 				realType, realType, realType, NULL);
 		pointerType = llvm::PointerType::get(structType, 0);
 
-		_operatorPrecedence["+"] = 10;
-		_operatorPrecedence["-"] = 10;
-		_operatorPrecedence["*"] = 20;
-		_operatorPrecedence["/"] = 20;
+		_operatorPrecedence["<"] = 10;
+		_operatorPrecedence["<="] = 10;
+		_operatorPrecedence[">"] = 10;
+		_operatorPrecedence[">="] = 10;
+		_operatorPrecedence["=="] = 10;
+		_operatorPrecedence["!="] = 10;
+		_operatorPrecedence["+"] = 20;
+		_operatorPrecedence["-"] = 20;
+		_operatorPrecedence["*"] = 30;
+		_operatorPrecedence["/"] = 30;
 	}
 
 	char llvmToType(llvm::Type* t)
@@ -341,6 +349,9 @@ private:
 		else
 		{
 			/* Variable reference. */
+
+			if ((id == "true") || (id == "false"))
+				return retain(new ASTBoolean(position, id));
 			return retain(new ASTVariable(position, id));
 		}
 	}
@@ -374,6 +385,8 @@ private:
 				const string& id = lexer.id();
 				if (id == "let")
 					return parse_let(lexer);
+				else if (id == "if")
+					return parse_if(lexer);
 				return parse_variable_or_function_call(lexer);
 			}
 		}
@@ -500,6 +513,20 @@ private:
 			return retain(new ASTDefineVariable(position, id, returntype,
 					value, body));
 		}
+	}
+
+	ASTNode* parse_if(L& lexer)
+	{
+		Position position = lexer.position();
+
+		expect_identifier(lexer, "if");
+		ASTNode* condition = parse_expression(lexer);
+		expect_identifier(lexer, "then");
+		ASTNode* trueval = parse_expression(lexer);
+		expect_identifier(lexer, "else");
+		ASTNode* falseval = parse_expression(lexer);
+
+		return retain(new ASTCondition(position, condition, trueval, falseval));
 	}
 
 	ASTVector* parse_vector(L& lexer)

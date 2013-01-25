@@ -4,5 +4,20 @@ let quadratic(a, b, c):vector =
 	let s2 = (-b - f) / (2*a);
 	[s1, s2, 0];
 
-let q: vector = quadratic(x, y, z);
-q.x - q.y
+let fibonacci(n) =
+	let fib2(n, p0, p1) =
+		if (n <= 1) then
+			p1
+		else
+			fib2(n-1, p1, p0+p1);
+	fib2(n, 0, 1);
+
+let sum(n) =
+	let sum2(n, p) =
+		if (n <= 1) then
+			p
+		else
+			sum2(n-1, p+n);
+	sum2(n, 1);
+	
+sum(z)

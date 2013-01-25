@@ -40,7 +40,8 @@ namespace Calculon
 	public:
 		enum
 		{
-			VECTOR = 'V'
+			VECTOR = 'V',
+			BOOLEAN = 'B'
 		};
 	};
 
@@ -148,6 +149,7 @@ namespace Calculon
 			llvm::Type* realType;
 			llvm::Type* vectorType;
 			llvm::Type* pointerType;
+			llvm::Type* booleanType;
 
 			CompilerState(llvm::LLVMContext& context, llvm::Module* module):
 				context(context),
@@ -167,6 +169,9 @@ namespace Calculon
 
 					case S::VECTOR:
 						return vectorType;
+
+					case S::BOOLEAN:
+						return booleanType;
 				}
 				assert(false);
 			}
@@ -175,11 +180,11 @@ namespace Calculon
 			{
 				switch (c)
 				{
-					case S::REAL:
-						return realType;
-
 					case S::VECTOR:
 						return pointerType;
+
+					default:
+						return getInternalType(c);
 				}
 				assert(false);
 			}

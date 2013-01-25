@@ -9,6 +9,70 @@ class StandardSymbolTable : public MultipleSymbolTable
 {
 	using MultipleSymbolTable::add;
 
+	class LTMethod : public BitcodeRealComparisonSymbol
+	{
+	public:
+		LTMethod():
+			BitcodeRealComparisonSymbol("method <")
+		{
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+					const vector<llvm::Value*>& parameters)
+		{
+			return state.builder.CreateFCmpOLT(parameters[0], parameters[1]);
+		}
+	}
+	_ltMethod;
+
+	class LEMethod : public BitcodeRealComparisonSymbol
+	{
+	public:
+		LEMethod():
+			BitcodeRealComparisonSymbol("method <=")
+		{
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+					const vector<llvm::Value*>& parameters)
+		{
+			return state.builder.CreateFCmpOLE(parameters[0], parameters[1]);
+		}
+	}
+	_leMethod;
+
+	class GTMethod : public BitcodeRealComparisonSymbol
+	{
+	public:
+		GTMethod():
+			BitcodeRealComparisonSymbol("method >")
+		{
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+					const vector<llvm::Value*>& parameters)
+		{
+			return state.builder.CreateFCmpOGT(parameters[0], parameters[1]);
+		}
+	}
+	_gtMethod;
+
+	class GEMethod : public BitcodeRealComparisonSymbol
+	{
+	public:
+		GEMethod():
+			BitcodeRealComparisonSymbol("method >=")
+		{
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+					const vector<llvm::Value*>& parameters)
+		{
+			return state.builder.CreateFCmpOGE(parameters[0], parameters[1]);
+		}
+	}
+	_geMethod;
+
 	class AddMethod : public BitcodeRealOrVectorHomogeneousSymbol
 	{
 	public:
@@ -294,6 +358,10 @@ public:
 		#undef REAL3
 		_dummy(0)
 	{
+		add(&_ltMethod);
+		add(&_leMethod);
+		add(&_gtMethod);
+		add(&_geMethod);
 		add(&_addMethod);
 		add(&_subMethod);
 		add(&_mulMethod);

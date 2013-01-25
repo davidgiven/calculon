@@ -273,6 +273,48 @@ public:
 			const vector<llvm::Value*>& parameters) = 0;
 };
 
+class BitcodeRealSymbol : public BitcodeSymbol
+{
+	using CallableSymbol::typeError;
+
+public:
+	BitcodeRealSymbol(string id, int parameters):
+		BitcodeSymbol(id, parameters)
+	{
+	}
+
+	void typeCheckParameter(CompilerState& state,
+				int index, llvm::Value* argument, char type)
+	{
+		if (argument->getType() != state.realType)
+			typeError(state, index, argument, type);
+	}
+};
+
+class BitcodeRealComparisonSymbol : public BitcodeSymbol
+{
+	using CallableSymbol::typeError;
+
+public:
+	BitcodeRealComparisonSymbol(string id):
+		BitcodeSymbol(id, 2)
+	{
+	}
+
+	void typeCheckParameter(CompilerState& state,
+				int index, llvm::Value* argument, char type)
+	{
+		if (argument->getType() != state.realType)
+			typeError(state, index, argument, type);
+	}
+
+	llvm::Type* returnType(CompilerState& state,
+			const vector<llvm::Type*>& inputTypes)
+	{
+		return state.booleanType;
+	}
+};
+
 class BitcodeVectorSymbol : public BitcodeSymbol
 {
 	using CallableSymbol::typeError;

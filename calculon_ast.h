@@ -74,6 +74,25 @@ struct ASTConstant : public ASTNode
 	}
 };
 
+struct ASTBoolean : public ASTNode
+{
+	string id;
+
+	ASTBoolean(const Position& position, const string& id):
+		ASTNode(position),
+		id(id)
+	{
+	}
+
+	llvm::Value* codegen(Compiler& compiler)
+	{
+		if (id == "true")
+			return llvm::ConstantInt::getTrue(compiler.booleanType);
+		else
+			return llvm::ConstantInt::getFalse(compiler.booleanType);
+	}
+};
+
 struct ASTVariable : public ASTNode
 {
 	string id;
@@ -444,6 +463,69 @@ struct ASTFunctionCall : public ASTNode
 
 		compiler.position = position;
 		return function->emitCall(compiler, parameters);
+	}
+};
+
+struct ASTCondition : public ASTNode
+{
+	ASTNode* condition;
+	ASTNode* trueval;
+	ASTNode* falseval;
+
+	using ASTNode::position;
+
+	ASTCondition(const Position& position, ASTNode* condition,
+			ASTNode* trueval, ASTNode* falseval):
+		ASTNode(position),
+		condition(condition), trueval(trueval), falseval(falseval)
+	{
+		condition->parent = trueval->parent = falseval->parent = this;
+	}
+
+	void resolveVariables(Compiler& compiler)
+	{
+		condition->resolveVariables(compiler);
+		trueval->resolveVariables(compiler);
+		falseval->resolveVariables(compiler);
+	}
+
+	llvm::Value* codegen(Compiler& compiler)
+	{
+		llvm::Value* cv = condition->codegen(compiler);
+
+		llvm::BasicBlock* bb = compiler.builder.GetInsertBlock();
+
+		llvm::BasicBlock* trueblock = llvm::BasicBlock::Create(
+				compiler.context, "", bb->getParent());
+		llvm::BasicBlock* falseblock = llvm::BasicBlock::Create(
+				compiler.context, "", bb->getParent());
+		llvm::BasicBlock* mergeblock = llvm::BasicBlock::Create(
+				compiler.context, "", bb->getParent());
+
+		compiler.builder.CreateCondBr(cv, trueblock, falseblock);
+
+		compiler.builder.SetInsertPoint(trueblock);
+		llvm::Value* trueresult = trueval->codegen(compiler);
+		trueblock = compiler.builder.GetInsertBlock();
+		compiler.builder.CreateBr(mergeblock);
+
+		compiler.builder.SetInsertPoint(falseblock);
+		llvm::Value* falseresult = falseval->codegen(compiler);
+		falseblock = compiler.builder.GetInsertBlock();
+		compiler.builder.CreateBr(mergeblock);
+
+		if (trueresult->getType() != falseresult->getType())
+		{
+			std::stringstream s;
+			s << "the true and false value of a conditional must be the same type";
+			throw CompilationException(position.formatError(s.str()));
+		}
+
+		compiler.builder.SetInsertPoint(mergeblock);
+		llvm::PHINode* phi = compiler.builder.CreatePHI(trueresult->getType(), 2);
+		phi->addIncoming(trueresult, trueblock);
+		phi->addIncoming(falseresult, falseblock);
+		return phi;
 	}
 };
 
