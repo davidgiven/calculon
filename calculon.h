@@ -355,6 +355,7 @@ namespace Calculon
 			void generate_machine_code()
 			{
 //				_module->dump();
+				llvm::verifyFunction(*_function);
 
 				llvm::FunctionPassManager fpm(_module);
 				llvm::PassManager mpm;
@@ -366,7 +367,6 @@ namespace Calculon
 				pmb.populateModulePassManager(mpm);
 
 				fpm.doInitialization();
-				llvm::verifyFunction(*_function);
 				fpm.run(*_function);
 				mpm.run(*_module);
 

@@ -303,7 +303,7 @@ struct ASTFunctionBody : public ASTFrame
 		{
 			if (i->first != i->second)
 			{
-				VariableSymbol* symbol = i->second;
+				VariableSymbol* symbol = i->first; // root variable!
 				assert(symbol->value);
 				llvmtypes.push_back(symbol->value->getType());
 			}
@@ -348,7 +348,7 @@ struct ASTFunctionBody : public ASTFrame
 				if (li->first != li->second)
 				{
 					assert(vi != f->arg_end());
-					VariableSymbol* symbol = li->first;
+					VariableSymbol* symbol = li->second;
 					vi->setName(symbol->name + "." + symbol->hash);
 					symbol->value = vi;
 
@@ -426,6 +426,7 @@ struct ASTFunctionCall : public ASTNode
 
 	using ASTNode::position;
 	using ASTNode::getFrame;
+	using ASTNode::getFunction;
 
 	ASTFunctionCall(const Position& position, const string& id,
 			const vector<ASTNode*>& arguments):
@@ -458,16 +459,54 @@ struct ASTFunctionCall : public ASTNode
 		{
 			(*i)->resolveVariables(compiler);
 		}
+
+		/* Ensure that any upvalues that the function wants exist in this
+		 * function.
+		 */
+
+		FunctionSymbol* callee = function->isFunction();
+		if (callee)
+		{
+			FunctionSymbol* caller = getFunction();
+			for (typename FunctionSymbol::LocalsMap::const_iterator i = callee->locals.begin(),
+					e = callee->locals.end(); i != e; i++)
+			{
+				if (i->first != i->second)
+					caller->importUpvalue(compiler, i->first);
+			}
+		}
 	}
 
 	llvm::Value* codegen(Compiler& compiler)
 	{
+		function->checkParameterCount(compiler, arguments.size());
+
+		/* Formal parameters. */
+
 		vector<llvm::Value*> parameters;
 		for (typename vector<ASTNode*>::const_iterator i = arguments.begin(),
 				e = arguments.end(); i != e; i++)
 		{
 			llvm::Value* v = (*i)->codegen(compiler);
 			parameters.push_back(v);
+		}
+
+		/* ...followed by imported upvalues. */
+
+		FunctionSymbol* callee = function->isFunction();
+		if (callee)
+		{
+			FunctionSymbol* caller = getFunction();
+			for (typename FunctionSymbol::LocalsMap::const_iterator i = callee->locals.begin(),
+					e = callee->locals.end(); i != e; i++)
+			{
+				if (i->first != i->second)
+				{
+					VariableSymbol* s = caller->locals[i->first];
+					assert(s);
+					parameters.push_back(s->value);
+				}
+			}
 		}
 
 		compiler.position = position;

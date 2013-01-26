@@ -102,10 +102,9 @@ public:
 		return this;
 	}
 
-	virtual void checkParameterCount(CompilerState& state,
-			const vector<llvm::Value*>& parameters, int count)
+	void checkParameterCount(CompilerState& state, int calledwith, int required)
 	{
-		if (parameters.size() != count)
+		if (calledwith != required)
 		{
 			std::stringstream s;
 			s << "attempt to call function '" << name <<
@@ -113,6 +112,8 @@ public:
 			throw CompilationException(state.position.formatError(s.str()));
 		}
 	}
+
+	virtual void checkParameterCount(CompilerState& state, int calledwith) = 0;
 
 	void typeError(CompilerState& state,
 			int index, llvm::Value* argument, char type)
@@ -143,10 +144,9 @@ public:
 	FunctionSymbol* parent; // parent function in the static scope
 
 	typedef map<VariableSymbol*, VariableSymbol*> LocalsMap;
-	LocalsMap locals;
+	LocalsMap locals; // maps root variable -> local variable
 
 private:
-	using CallableSymbol::checkParameterCount;
 	using CallableSymbol::typeCheckParameter;
 	using CallableSymbol::typeError;
 
@@ -172,12 +172,15 @@ public:
 		return this;
 	}
 
+	void checkParameterCount(CompilerState& state, int calledwith)
+	{
+		CallableSymbol::checkParameterCount(state, calledwith, arguments.size());
+	}
+
 	llvm::Value* emitCall(CompilerState& state,
 			const vector<llvm::Value*>& parameters)
 	{
-		checkParameterCount(state, parameters, arguments.size());
-
-		/* Type-check the parameters. */
+		/* Type-check the parameters. (Only the formal arguments.) */
 
 		int i = 1;
 		typename vector<VariableSymbol*>::const_iterator ai = arguments.begin();
@@ -192,18 +195,8 @@ public:
 			ai++;
 		}
 
-		/* Assemble the actual list of parameters. */
-
-		vector<llvm::Value*> realparameters(parameters);
-		for (typename LocalsMap::const_iterator li = locals.begin(),
-				le = locals.end(); li != le; li++)
-		{
-			if (li->first != li->second)
-				realparameters.push_back(li->second->value);
-		}
-
 		assert(function);
-		return state.builder.CreateCall(function, realparameters);
+		return state.builder.CreateCall(function, parameters);
 	}
 
 	VariableSymbol* importUpvalue(CompilerState& compiler, VariableSymbol* symbol)
@@ -220,11 +213,18 @@ public:
 		 * in the static scope chain.
 		 */
 
+		if (!parent)
+		{
+			std::stringstream s;
+			s << "could not import " << symbol << " (" << symbol->name << ")";
+			throw CompilationException(s.str());
+		}
+
 		assert(parent);
-		VariableSymbol* parentsymbol = parent->importUpvalue(compiler, symbol);
+		parent->importUpvalue(compiler, symbol);
 		VariableSymbol* localsymbol = compiler.retain(
 				new VariableSymbol(symbol->name, symbol->type));
-		locals[localsymbol] = parentsymbol;
+		locals[symbol] = localsymbol;
 
 		return localsymbol;
 	}
@@ -236,7 +236,6 @@ class BitcodeSymbol : public CallableSymbol
 	int arguments;
 
 public:
-	using CallableSymbol::checkParameterCount;
 	using CallableSymbol::typeCheckParameter;
 	using CallableSymbol::typeError;
 
@@ -246,11 +245,14 @@ public:
 	{
 	}
 
+	void checkParameterCount(CompilerState& state, int calledwith)
+	{
+		CallableSymbol::checkParameterCount(state, calledwith, arguments);
+	}
+
 	llvm::Value* emitCall(CompilerState& state,
 			const vector<llvm::Value*>& parameters)
 	{
-		checkParameterCount(state, parameters, arguments);
-
 		int i = 1;
 		vector<llvm::Value*>::const_iterator pi = parameters.begin();
 		vector<llvm::Type*> llvmtypes;
@@ -506,7 +508,6 @@ class IntrinsicFunctionSymbol : public CallableSymbol
 	int arguments;
 
 public:
-	using CallableSymbol::checkParameterCount;
 	using CallableSymbol::typeCheckParameter;
 	using CallableSymbol::typeError;
 
@@ -516,11 +517,14 @@ public:
 	{
 	}
 
+	void checkParameterCount(CompilerState& state, int calledwith)
+	{
+		CallableSymbol::checkParameterCount(state, calledwith, arguments);
+	}
+
 	llvm::Value* emitCall(CompilerState& state,
 			const vector<llvm::Value*>& parameters)
 	{
-		checkParameterCount(state, parameters, arguments);
-
 		int i = 1;
 		vector<llvm::Value*>::const_iterator pi = parameters.begin();
 		vector<llvm::Type*> llvmtypes;

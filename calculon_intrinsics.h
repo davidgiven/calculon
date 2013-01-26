@@ -209,13 +209,12 @@ class StandardSymbolTable : public MultipleSymbolTable
 		{
 		}
 
-		void checkParameterCount(CompilerState& state,
-				const vector<llvm::Value*>& parameters, int count)
+		void checkParameterCount(CompilerState& state, int calledwith)
 		{
-			if ((parameters.size() == 1) || (parameters.size() == 2))
+			if ((calledwith == 1) || (calledwith == 2))
 				return;
 			BitcodeRealOrVectorHomogeneousSymbol::checkParameterCount(
-					state, parameters, count);
+					state, calledwith);
 		}
 
 		llvm::Value* emitBitcode(CompilerState& state,
