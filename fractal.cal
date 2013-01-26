@@ -1,0 +1,12 @@
+let cr = r;
+let ci = i;
+let maxi = 32;
+
+let iterations(r, i, n) =
+	if n > maxi or (r*r + i*i) > 4 then
+		n
+	else
+		iterations(cr + r*r - i*i, 2*r*i + ci, n+1);
+
+let n = iterations(r, i, 0);
+if n > maxi then 0 else n/maxi
