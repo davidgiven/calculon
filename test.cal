@@ -14,10 +14,12 @@ let fibonacci(n) =
 
 let sum(n) =
 	let sum2(n, p) =
-		if (n <= 1) then
+		if (n == 1) then
 			p
 		else
 			sum2(n-1, p+n);
 	sum2(n, 1);
 	
-[x,x,x] != [y,y,y]
+let bool(b:boolean) = if b then 1 else 0;
+
+bool(sum(x) > 0)

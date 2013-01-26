@@ -171,7 +171,13 @@ private:
 		while (iscontinuedid(_data.peek()));
 
 		_idValue = s.str();
-		_token = IDENTIFIER;
+
+		if (_idValue == "and")
+			_token = OPERATOR;
+		else if (_idValue == "or")
+			_token = OPERATOR;
+		else
+			_token = IDENTIFIER;
 	}
 
 	void read_operator()

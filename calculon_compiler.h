@@ -105,6 +105,8 @@ public:
 				realType, realType, realType, NULL);
 		pointerType = llvm::PointerType::get(structType, 0);
 
+		_operatorPrecedence["and"] = 5;
+		_operatorPrecedence["or"] = 5;
 		_operatorPrecedence["<"] = 10;
 		_operatorPrecedence["<="] = 10;
 		_operatorPrecedence[">"] = 10;
@@ -460,11 +462,20 @@ private:
 			lexer.next();
 			ASTNode* rhs = parse_binary(lexer, p);
 
-			vector<ASTNode*> parameters;
-			parameters.push_back(lhs);
-			parameters.push_back(rhs);
-			lhs = retain(new ASTFunctionCall(position, "method "+id,
-					parameters));
+			if (id == "and")
+				lhs = retain(new ASTCondition(position, lhs,
+						rhs, retain(new ASTBoolean(position, "false"))));
+			else if (id == "or")
+				lhs = retain(new ASTCondition(position, lhs,
+						retain(new ASTBoolean(position, "true")), rhs));
+			else
+			{
+				vector<ASTNode*> parameters;
+				parameters.push_back(lhs);
+				parameters.push_back(rhs);
+				lhs = retain(new ASTFunctionCall(position, "method "+id,
+						parameters));
+			}
 		}
 
 		return lhs;

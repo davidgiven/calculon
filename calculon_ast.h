@@ -42,6 +42,15 @@ struct ASTNode : public Object
 		return v;
 	}
 
+	llvm::Value* codegen_to_boolean(Compiler& compiler)
+	{
+		llvm::Value* v = codegen(compiler);
+
+		if (v->getType() != compiler.booleanType)
+			throw TypeException("type mismatch: expected a boolean", this);
+		return v;
+	}
+
 	virtual void resolveVariables(Compiler& compiler)
 	{
 	}
@@ -491,7 +500,7 @@ struct ASTCondition : public ASTNode
 
 	llvm::Value* codegen(Compiler& compiler)
 	{
-		llvm::Value* cv = condition->codegen(compiler);
+		llvm::Value* cv = condition->codegen_to_boolean(compiler);
 
 		llvm::BasicBlock* bb = compiler.builder.GetInsertBlock();
 
