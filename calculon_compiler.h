@@ -429,7 +429,7 @@ private:
 			Position position = lexer.position();
 			string id = lexer.id();
 
-			if (id == "-")
+			if ((id == "-") || (id == "not"))
 			{
 				lexer.next();
 

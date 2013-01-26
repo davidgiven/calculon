@@ -273,6 +273,24 @@ public:
 			const vector<llvm::Value*>& parameters) = 0;
 };
 
+class BitcodeBooleanSymbol : public BitcodeSymbol
+{
+	using CallableSymbol::typeError;
+
+public:
+	BitcodeBooleanSymbol(string id, int parameters):
+		BitcodeSymbol(id, parameters)
+	{
+	}
+
+	void typeCheckParameter(CompilerState& state,
+				int index, llvm::Value* argument, char type)
+	{
+		if (argument->getType() != state.booleanType)
+			typeError(state, index, argument, type);
+	}
+};
+
 class BitcodeRealSymbol : public BitcodeSymbol
 {
 	using CallableSymbol::typeError;

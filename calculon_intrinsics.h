@@ -9,6 +9,28 @@ class StandardSymbolTable : public MultipleSymbolTable
 {
 	using MultipleSymbolTable::add;
 
+	class NotMethod : public BitcodeBooleanSymbol
+	{
+	public:
+		NotMethod():
+			BitcodeBooleanSymbol("method not", 1)
+		{
+		}
+
+		llvm::Type* returnType(CompilerState& state,
+				const vector<llvm::Type*>& inputTypes)
+		{
+			return state.realType;
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+					const vector<llvm::Value*>& parameters)
+		{
+			return state.builder.CreateNot(parameters[0]);
+		}
+	}
+	_notMethod;
+
 	class LTMethod : public BitcodeRealComparisonSymbol
 	{
 	public:
@@ -448,6 +470,7 @@ public:
 		#undef REAL3
 		_dummy(0)
 	{
+		add(&_notMethod);
 		add(&_ltMethod);
 		add(&_leMethod);
 		add(&_gtMethod);

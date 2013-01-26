@@ -176,6 +176,8 @@ private:
 			_token = OPERATOR;
 		else if (_idValue == "or")
 			_token = OPERATOR;
+		else if (_idValue == "not")
+			_token = OPERATOR;
 		else
 			_token = IDENTIFIER;
 	}
