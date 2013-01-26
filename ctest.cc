@@ -16,7 +16,7 @@ int main(int argc, const char* argv[])
 
 	typedef Real TestFunc(Real x, Real y, Real z);
 	std::ifstream code("test.cal");
-	Compiler::Program<TestFunc> func(symbols, code, "(x,y,z)");
+	Compiler::Program<TestFunc> func(symbols, code, "(x,y,z):boolean");
 	std::cout << "size of Program object: " << sizeof(func) << "\n";
 	func.dump();
 

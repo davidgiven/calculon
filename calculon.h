@@ -108,7 +108,8 @@ namespace Calculon
 		enum
 		{
 			REAL = S::REAL,
-			VECTOR = S::VECTOR
+			VECTOR = S::VECTOR,
+			BOOLEAN = S::BOOLEAN
 		};
 
 	private:

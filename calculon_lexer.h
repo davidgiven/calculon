@@ -195,6 +195,7 @@ private:
 			case '=':
 			case '<':
 			case '>':
+			case '!':
 				if (p == '=')
 				{
 					consume();

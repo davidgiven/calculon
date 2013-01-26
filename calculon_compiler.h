@@ -123,6 +123,8 @@ public:
 			return REAL;
 		else if (t == vectorType)
 			return VECTOR;
+		else if (t == booleanType)
+			return BOOLEAN;
 		assert(false);
 	}
 
@@ -292,6 +294,8 @@ private:
 				type = VECTOR;
 			else if (lexer.id() == "real")
 				type = REAL;
+			else if (lexer.id() == "boolean")
+				type = BOOLEAN;
 			else
 				lexer.error("expected a type name");
 

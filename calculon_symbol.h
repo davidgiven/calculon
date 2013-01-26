@@ -358,14 +358,14 @@ public:
 	}
 };
 
-class BitcodeRealOrVectorHomogeneousSymbol : public BitcodeRealOrVectorSymbol
+class BitcodeHomogeneousSymbol : public BitcodeSymbol
 {
 	llvm::Type* firsttype;
 
 	using Symbol::name;
 public:
-	BitcodeRealOrVectorHomogeneousSymbol(string id, int parameters):
-		BitcodeRealOrVectorSymbol(id, parameters),
+	BitcodeHomogeneousSymbol(string id, int parameters):
+		BitcodeSymbol(id, parameters),
 		firsttype(NULL)
 	{
 	}
@@ -387,9 +387,49 @@ public:
 				throw CompilationException(state.position.formatError(s.str()));
 			}
 		}
+	}
+};
 
-		return BitcodeRealOrVectorSymbol::typeCheckParameter(state, index,
+class BitcodeComparisonSymbol : public BitcodeHomogeneousSymbol
+{
+public:
+	BitcodeComparisonSymbol(string id):
+		BitcodeHomogeneousSymbol(id, 2)
+	{
+	}
+
+	llvm::Type* returnType(CompilerState& state,
+			const vector<llvm::Type*>& inputTypes)
+	{
+		return state.booleanType;
+	}
+};
+
+class BitcodeRealOrVectorHomogeneousSymbol : public BitcodeHomogeneousSymbol
+{
+	using CallableSymbol::typeError;
+
+public:
+	BitcodeRealOrVectorHomogeneousSymbol(string id, int parameters):
+		BitcodeHomogeneousSymbol(id, parameters)
+	{
+	}
+
+	void typeCheckParameter(CompilerState& state,
+				int index, llvm::Value* argument, char type)
+	{
+		if ((argument->getType() != state.realType) &&
+			(argument->getType() != state.vectorType))
+			typeError(state, index, argument, type);
+
+		return BitcodeHomogeneousSymbol::typeCheckParameter(state, index,
 				argument, type);
+	}
+
+	llvm::Type* returnType(CompilerState& state,
+			const vector<llvm::Type*>& inputTypes)
+	{
+		return inputTypes[0];
 	}
 };
 

@@ -20,4 +20,4 @@ let sum(n) =
 			sum2(n-1, p+n);
 	sum2(n, 1);
 	
-sum(z)
+[x,x,x] != [y,y,y]

@@ -73,6 +73,96 @@ class StandardSymbolTable : public MultipleSymbolTable
 	}
 	_geMethod;
 
+	class EQMethod : public BitcodeComparisonSymbol
+	{
+	public:
+		EQMethod():
+			BitcodeComparisonSymbol("method ==")
+		{
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+					const vector<llvm::Value*>& parameters)
+		{
+			llvm::Type* type = parameters[0]->getType();
+
+			if (type == state.realType)
+				return state.builder.CreateFCmpOEQ(parameters[0], parameters[1]);
+			else if (type == state.booleanType)
+				return state.builder.CreateICmpEQ(parameters[0], parameters[1]);
+			else if (type == state.vectorType)
+			{
+				llvm::Value* x0 = state.builder.CreateExtractElement(
+						parameters[0], state.xindex);
+				llvm::Value* y0 = state.builder.CreateExtractElement(
+						parameters[0], state.yindex);
+				llvm::Value* z0 = state.builder.CreateExtractElement(
+						parameters[0], state.zindex);
+				llvm::Value* x1 = state.builder.CreateExtractElement(
+						parameters[1], state.xindex);
+				llvm::Value* y1 = state.builder.CreateExtractElement(
+						parameters[1], state.yindex);
+				llvm::Value* z1 = state.builder.CreateExtractElement(
+						parameters[1], state.zindex);
+
+				llvm::Value* x = state.builder.CreateFCmpOEQ(x0, x1);
+				llvm::Value* y = state.builder.CreateFCmpOEQ(y0, y1);
+				llvm::Value* z = state.builder.CreateFCmpOEQ(z0, z1);
+
+				llvm::Value* v = state.builder.CreateAnd(x, y);
+				return state.builder.CreateAnd(v, z);
+			}
+			else
+				assert(false);
+		}
+	}
+	_eqMethod;
+
+	class NEMethod : public BitcodeComparisonSymbol
+	{
+	public:
+		NEMethod():
+			BitcodeComparisonSymbol("method !=")
+		{
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+					const vector<llvm::Value*>& parameters)
+		{
+			llvm::Type* type = parameters[0]->getType();
+
+			if (type == state.realType)
+				return state.builder.CreateFCmpONE(parameters[0], parameters[1]);
+			else if (type == state.booleanType)
+				return state.builder.CreateICmpNE(parameters[0], parameters[1]);
+			else if (type == state.vectorType)
+			{
+				llvm::Value* x0 = state.builder.CreateExtractElement(
+						parameters[0], state.xindex);
+				llvm::Value* y0 = state.builder.CreateExtractElement(
+						parameters[0], state.yindex);
+				llvm::Value* z0 = state.builder.CreateExtractElement(
+						parameters[0], state.zindex);
+				llvm::Value* x1 = state.builder.CreateExtractElement(
+						parameters[1], state.xindex);
+				llvm::Value* y1 = state.builder.CreateExtractElement(
+						parameters[1], state.yindex);
+				llvm::Value* z1 = state.builder.CreateExtractElement(
+						parameters[1], state.zindex);
+
+				llvm::Value* x = state.builder.CreateFCmpONE(x0, x1);
+				llvm::Value* y = state.builder.CreateFCmpONE(y0, y1);
+				llvm::Value* z = state.builder.CreateFCmpONE(z0, z1);
+
+				llvm::Value* v = state.builder.CreateAnd(x, y);
+				return state.builder.CreateAnd(v, z);
+			}
+			else
+				assert(false);
+		}
+	}
+	_neMethod;
+
 	class AddMethod : public BitcodeRealOrVectorHomogeneousSymbol
 	{
 	public:
@@ -362,6 +452,8 @@ public:
 		add(&_leMethod);
 		add(&_gtMethod);
 		add(&_geMethod);
+		add(&_eqMethod);
+		add(&_neMethod);
 		add(&_addMethod);
 		add(&_subMethod);
 		add(&_mulMethod);
