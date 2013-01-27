@@ -1,9 +1,1 @@
-let i = 1;
-
-let foo() =
-	let bar() =
-		let baz() =
-			i;
-		baz();
-	bar();
-foo()
+x+y-z+w

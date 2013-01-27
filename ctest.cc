@@ -14,13 +14,13 @@ int main(int argc, const char* argv[])
 
 	Compiler::StandardSymbolTable symbols;
 
-	typedef Real TestFunc(Real x, Real y, Real z);
+	typedef Real TestFunc(Real x, Real y, Real z, Real w);
 	std::ifstream code("test.cal");
-	Compiler::Program<TestFunc> func(symbols, code, "(x,y,z)");
+	Compiler::Program<TestFunc> func(symbols, code, "(x,y,z,w)");
 	std::cout << "size of Program object: " << sizeof(func) << "\n";
 	func.dump();
 
-	Real result = func(1, 2, 3);
+	Real result = func(1, 2, 3, 4);
 	std::cout << "result=" << result << "\n";
 
 	return 0;

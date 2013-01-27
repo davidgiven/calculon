@@ -1,5 +1,5 @@
 CXX = clang++
-LLVM = $(shell llvm-config-3.2 --cflags --ldflags --libs)
+LLVM = -I$(shell llvm-config-3.2 --includedir) $(shell llvm-config-3.2 --ldflags --libs)
 #LLVM = $(shell /tmp/llvm/bin/llvm-config --cflags --ldflags --libs)
 
 all: ctest fractal

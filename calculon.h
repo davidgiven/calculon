@@ -11,6 +11,9 @@
 #include <cctype>
 #include <memory>
 #include <boost/thread/tss.hpp>
+
+#define __STDC_LIMIT_MACROS
+#define __STDC_CONSTANT_MACROS
 #include "llvm/DerivedTypes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JIT.h"
@@ -251,7 +254,7 @@ namespace Calculon
 				llvm::InitializeNativeTarget();
 
 				llvm::TargetOptions options;
-				options.PrintMachineCode = true;
+//				options.PrintMachineCode = true;
 				options.UnsafeFPMath = true;
 				options.RealignStack = true;
 				options.LessPreciseFPMADOption = true;
