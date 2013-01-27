@@ -460,7 +460,7 @@ private:
 				break;
 
 			lexer.next();
-			ASTNode* rhs = parse_binary(lexer, p);
+			ASTNode* rhs = parse_binary(lexer, p+1);
 
 			if (id == "and")
 				lhs = retain(new ASTCondition(position, lhs,
