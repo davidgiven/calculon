@@ -1,0 +1,4 @@
+let r = perlin([x*4, y*4, 0]);
+let g = perlin([x*4.1, y*3.9, 0]);
+let b = perlin([x*3.9, y*4.1, 0]);
+[r, g, b]
