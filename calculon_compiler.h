@@ -26,6 +26,8 @@ private:
 	using CompilerState::yindex;
 	using CompilerState::zindex;
 	using CompilerState::realType;
+	using CompilerState::doubleType;
+	using CompilerState::floatType;
 	using CompilerState::vectorType;
 	using CompilerState::pointerType;
 	using CompilerState::booleanType;
@@ -90,14 +92,17 @@ private:
 	};
 
 public:
-	Compiler(llvm::LLVMContext& context, llvm::Module* module):
-		CompilerState(context, module)
+	Compiler(llvm::LLVMContext& context, llvm::Module* module,
+			llvm::ExecutionEngine* engine):
+		CompilerState(context, module, engine)
 	{
 		intType = llvm::IntegerType::get(context, 32);
 		xindex = llvm::ConstantInt::get(intType, 0);
 		yindex = llvm::ConstantInt::get(intType, 1);
 		zindex = llvm::ConstantInt::get(intType, 2);
 		realType = S::createRealType(context);
+		doubleType = llvm::Type::getDoubleTy(context);
+		floatType = llvm::Type::getFloatTy(context);
 		vectorType = llvm::VectorType::get(realType, 4);
 		booleanType = llvm::IntegerType::get(context, 1);
 
@@ -128,30 +133,6 @@ public:
 		else if (t == booleanType)
 			return BOOLEAN;
 		assert(false);
-	}
-
-	void storeVector(llvm::Value* v, llvm::Value* p)
-	{
-		llvm::Value* xv = builder.CreateExtractElement(v, xindex);
-		llvm::Value* yv = builder.CreateExtractElement(v, yindex);
-		llvm::Value* zv = builder.CreateExtractElement(v, zindex);
-
-		builder.CreateStore(xv, builder.CreateStructGEP(p, 0));
-		builder.CreateStore(yv, builder.CreateStructGEP(p, 1));
-		builder.CreateStore(zv, builder.CreateStructGEP(p, 2));
-	}
-
-	llvm::Value* loadVector(llvm::Value* p)
-	{
-		llvm::Value* xv = builder.CreateLoad(builder.CreateStructGEP(p, 0));
-		llvm::Value* yv = builder.CreateLoad(builder.CreateStructGEP(p, 1));
-		llvm::Value* zv = builder.CreateLoad(builder.CreateStructGEP(p, 2));
-
-		llvm::Value* v = llvm::UndefValue::get(vectorType);
-		v = builder.CreateInsertElement(v, xv, xindex);
-		v = builder.CreateInsertElement(v, yv, yindex);
-		v = builder.CreateInsertElement(v, zv, zindex);
-		return v;
 	}
 
 public:

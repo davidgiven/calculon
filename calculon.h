@@ -44,7 +44,9 @@ namespace Calculon
 		enum
 		{
 			VECTOR = 'V',
-			BOOLEAN = 'B'
+			BOOLEAN = 'B',
+			DOUBLE = 'D',
+			FLOAT = 'F'
 		};
 	};
 
@@ -53,7 +55,7 @@ namespace Calculon
 	public:
 		enum
 		{
-			REAL = 'D'
+			REAL = DOUBLE
 		};
 
 		typedef double Real;
@@ -76,7 +78,7 @@ namespace Calculon
 	public:
 		enum
 		{
-			REAL = 'F'
+			REAL = FLOAT
 		};
 
 		typedef float Real;
@@ -111,6 +113,8 @@ namespace Calculon
 		enum
 		{
 			REAL = S::REAL,
+			DOUBLE = S::DOUBLE,
+			FLOAT = S::FLOAT,
 			VECTOR = S::VECTOR,
 			BOOLEAN = S::BOOLEAN
 		};
@@ -145,22 +149,28 @@ namespace Calculon
 			llvm::LLVMContext& context;
 			llvm::Module* module;
 			llvm::IRBuilder<> builder;
+			llvm::ExecutionEngine* engine;
 			Position position;
 			llvm::Type* intType;
 			llvm::Value* xindex;
 			llvm::Value* yindex;
 			llvm::Value* zindex;
 			llvm::Type* realType;
+			llvm::Type* doubleType;
+			llvm::Type* floatType;
 			llvm::Type* vectorType;
-			llvm::Type* pointerType;
+			llvm::PointerType* pointerType;
 			llvm::Type* booleanType;
 
-			CompilerState(llvm::LLVMContext& context, llvm::Module* module):
+			CompilerState(llvm::LLVMContext& context, llvm::Module* module,
+					llvm::ExecutionEngine* engine):
 				context(context),
 				module(module),
 				builder(context),
+				engine(engine),
 				intType(NULL), xindex(NULL), yindex(NULL), zindex(NULL),
-				realType(NULL), vectorType(NULL), pointerType(NULL)
+				realType(NULL), doubleType(NULL), floatType(NULL),
+				vectorType(NULL), pointerType(NULL)
 			{
 			}
 
@@ -177,6 +187,13 @@ namespace Calculon
 					case S::BOOLEAN:
 						return booleanType;
 				}
+
+				/* One of these duplicates S::REAL so we can't put it in the
+				 * switch above.
+				 */
+				if ((c == S::DOUBLE) || (c == S::FLOAT))
+					return realType;
+
 				assert(false);
 			}
 
@@ -187,11 +204,42 @@ namespace Calculon
 					case S::VECTOR:
 						return pointerType;
 
+					case S::DOUBLE:
+						return doubleType;
+
+					case S::FLOAT:
+						return floatType;
+
 					default:
 						return getInternalType(c);
 				}
 				assert(false);
 			}
+
+			void storeVector(llvm::Value* v, llvm::Value* p)
+			{
+				llvm::Value* xv = builder.CreateExtractElement(v, xindex);
+				llvm::Value* yv = builder.CreateExtractElement(v, yindex);
+				llvm::Value* zv = builder.CreateExtractElement(v, zindex);
+
+				builder.CreateStore(xv, builder.CreateStructGEP(p, 0));
+				builder.CreateStore(yv, builder.CreateStructGEP(p, 1));
+				builder.CreateStore(zv, builder.CreateStructGEP(p, 2));
+			}
+
+			llvm::Value* loadVector(llvm::Value* p)
+			{
+				llvm::Value* xv = builder.CreateLoad(builder.CreateStructGEP(p, 0));
+				llvm::Value* yv = builder.CreateLoad(builder.CreateStructGEP(p, 1));
+				llvm::Value* zv = builder.CreateLoad(builder.CreateStructGEP(p, 2));
+
+				llvm::Value* v = llvm::UndefValue::get(vectorType);
+				v = builder.CreateInsertElement(v, xv, xindex);
+				v = builder.CreateInsertElement(v, yv, yindex);
+				v = builder.CreateInsertElement(v, zv, zindex);
+				return v;
+			}
+
 		};
 
 		#include "calculon_symbol.h"
@@ -254,7 +302,7 @@ namespace Calculon
 				llvm::InitializeNativeTarget();
 
 				llvm::TargetOptions options;
-//				options.PrintMachineCode = true;
+				options.PrintMachineCode = true;
 				options.UnsafeFPMath = true;
 				options.RealignStack = true;
 				options.LessPreciseFPMADOption = true;
@@ -272,7 +320,7 @@ namespace Calculon
 				_engine->DisableLazyCompilation();
 	//			_engine->DisableSymbolSearching();
 
-				Compiler compiler(_context, _module);
+				Compiler compiler(_context, _module, _engine);
 
 				/* Compile the program. */
 

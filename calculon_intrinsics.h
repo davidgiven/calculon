@@ -5,7 +5,7 @@
 #error "Don't include this, include calculon.h instead."
 #endif
 
-class StandardSymbolTable : public MultipleSymbolTable
+class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 {
 	using MultipleSymbolTable::add;
 
@@ -457,6 +457,25 @@ class StandardSymbolTable : public MultipleSymbolTable
 	#undef REAL2
 	#undef REAL3
 	char _dummy;
+
+	void add(const string& name, const string& signature, void (*ptr)())
+	{
+		unsigned i = signature.find('=');
+		if (i != 1)
+			throw CompilationException("malformed external function signature");
+
+		char returntype = signature[0];
+		string inputtypes = signature.substr(2);
+
+		add(retain(new ExternalFunctionSymbol(name, inputtypes, returntype, ptr)));
+	}
+
+public:
+	template <typename T>
+	void add(const string& name, const string& signature, T* ptr)
+	{
+		add(name, signature, (void (*)()) ptr);
+	}
 
 public:
 	StandardSymbolTable():

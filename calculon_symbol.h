@@ -275,6 +275,113 @@ public:
 			const vector<llvm::Value*>& parameters) = 0;
 };
 
+class ExternalFunctionSymbol : public CallableSymbol
+{
+	string inputtypes;
+	char returntype;
+	void (*pointer)();
+
+public:
+	using CallableSymbol::typeCheckParameter;
+	using CallableSymbol::typeError;
+
+	ExternalFunctionSymbol(const string& name, const string& inputtypes,
+			char returntype, void (*pointer)()):
+		CallableSymbol(name),
+		inputtypes(inputtypes),
+		returntype(returntype),
+		pointer(pointer)
+	{
+	}
+
+	void checkParameterCount(CompilerState& state, int calledwith)
+	{
+		CallableSymbol::checkParameterCount(state, calledwith, inputtypes.size());
+	}
+
+	llvm::Value* emitCall(CompilerState& state,
+			const vector<llvm::Value*>& parameters)
+	{
+		int i = 0;
+		vector<llvm::Value*>::const_iterator pi = parameters.begin();
+		vector<llvm::Value*> llvmvalues;
+		vector<llvm::Type*> llvmtypes;
+
+		llvm::Type* internalrtype = state.getInternalType(returntype);
+		llvm::Type* externalrtype = state.getExternalType(returntype);
+
+		/* If we're returning a vector, insert the return pointer now.
+		 */
+
+		if (internalrtype == state.vectorType)
+		{
+			llvm::Value* p = state.builder.CreateAlloca(
+					state.pointerType->getElementType(),
+					llvm::ConstantInt::get(state.intType, 1));
+
+			llvmvalues.push_back(p);
+			llvmtypes.push_back(p->getType());
+
+			externalrtype = llvm::Type::getVoidTy(state.context);
+		}
+
+		/* Convert and add any other parameters. */
+
+		while (pi != parameters.end())
+		{
+			llvm::Value* value = *pi;
+			char internalctype = inputtypes[i];
+			typeCheckParameter(state, i+1, value, internalctype);
+
+			llvm::Type* internaltype = state.getInternalType(internalctype);
+			llvm::Type* externaltype = state.getExternalType(internalctype);
+
+			if ((internaltype == state.doubleType) && (externaltype == state.floatType))
+				value = state.builder.CreateFPTrunc(value, externaltype);
+			else if ((internaltype == state.floatType) && (externaltype == state.doubleType))
+				value = state.builder.CreateFPExt(value, externaltype);
+			else if (internaltype == state.vectorType)
+			{
+				llvm::Value* p = state.builder.CreateAlloca(
+						state.pointerType->getElementType(),
+						llvm::ConstantInt::get(state.intType, 1));
+				state.storeVector(value, p);
+				value = p;
+			}
+			else if (internaltype != externaltype)
+				assert(false && "unsupported extern function type (this is a bug)");
+
+			llvmvalues.push_back(value);
+			llvmtypes.push_back(value->getType());
+
+			i++;
+			pi++;
+		}
+
+		llvm::FunctionType* ft = llvm::FunctionType::get(
+				externalrtype, llvmtypes, false);
+
+		/* Create the function. */
+
+		llvm::Constant* iptr = llvm::ConstantInt::get(
+				state.engine->getDataLayout()->getIntPtrType(state.context, 0),
+				(uint64_t) pointer);
+		llvm::Value* fptr = llvm::ConstantExpr::getIntToPtr(iptr,
+				llvm::PointerType::get(ft, 0));
+
+		llvm::Value* retval = state.builder.CreateCall(fptr, llvmvalues);
+		if ((externalrtype == state.floatType) && (internalrtype == state.doubleType))
+			retval = state.builder.CreateFPExt(retval, internalrtype);
+		else if ((externalrtype == state.doubleType) && (internalrtype == state.floatType))
+			retval = state.builder.CreateFPTrunc(retval, internalrtype);
+		else if (internalrtype == state.vectorType)
+			retval = state.loadVector(llvmvalues[0]);
+		else if (internalrtype != externalrtype)
+			assert(false && "unsupported return type (this is a bug)");
+		return retval;
+	}
+};
+
 class BitcodeBooleanSymbol : public BitcodeSymbol
 {
 	using CallableSymbol::typeError;
