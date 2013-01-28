@@ -76,34 +76,38 @@ public:
 
 	int next()
 	{
-		int c;
-		for (;;)
+		do
 		{
-			c = _data.peek();
-			if (!std::isspace(c))
-				break;
-			consume();
-		}
-		if (_data.eof())
-		{
-			_token = ENDOFFILE;
-			return ENDOFFILE;
-		}
+			int c;
+			for (;;)
+			{
+				c = _data.peek();
+				if (!std::isspace(c))
+					break;
+				consume();
+			}
+			if (_data.eof())
+			{
+				_token = ENDOFFILE;
+				return ENDOFFILE;
+			}
 
-		_tokenPos = _pos;
+			_tokenPos = _pos;
 
-		if (std::isdigit(c))
-			read_number();
-		else if (isid(c))
-			read_id();
-		else if (std::ispunct(c))
-			read_operator();
-		else
-		{
-			std::stringstream s;
-			s << "Unknown character '" << (char)c << "'";
-			error(s.str());
+			if (std::isdigit(c))
+				read_number();
+			else if (isid(c))
+				read_id();
+			else if (std::ispunct(c))
+				read_operator();
+			else
+			{
+				std::stringstream s;
+				s << "Unknown character '" << (char)c << "'";
+				error(s.str());
+			}
 		}
+		while (_token == INVALID);
 
 		return _token;
 	}
@@ -182,6 +186,34 @@ private:
 			_token = IDENTIFIER;
 	}
 
+	void read_multiline_comment()
+	{
+		for (;;)
+		{
+			if (_data.eof())
+				error("unexpected EOF in multiline comment");
+
+			int c = consume();
+			if ((c == '*') && (_data.peek() == '/'))
+			{
+				consume();
+				break;
+			}
+		}
+		_token = INVALID;
+	}
+
+	void read_singleline_comment()
+	{
+		int line = _pos.line;
+		do
+		{
+			consume();
+		}
+		while (!_data.eof() && (line == _pos.line));
+		_token = INVALID;
+	}
+
 	void read_operator()
 	{
 		int c = consume();
@@ -196,6 +228,19 @@ private:
 					/* Oops, this is really a number */
 					_data.putback('.');
 					read_number();
+					return;
+				}
+				break;
+
+			case '/':
+				if (p == '*')
+				{
+					read_multiline_comment();
+					return;
+				}
+				else if (p == '/')
+				{
+					read_singleline_comment();
 					return;
 				}
 				break;

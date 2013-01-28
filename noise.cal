@@ -1,3 +1,9 @@
+/* Produces an RGB colour vector (each component scaled from 0..1) for a
+ * particular location given by (x, y).
+ *
+ * perlin(V) produces Perlin noise for a particular vector location.
+ */
+
 let r = perlin([x*4, y*4, 0]);
 let g = perlin([x*4.1, y*3.9, 0]);
 let b = perlin([x*3.9, y*4.1, 0]);
