@@ -1,0 +1,70 @@
+<h3>Introduction</h3>
+
+<p>The Calculon language is extremely simple. There are three types, <code>real</code>,
+<code>vector</code> and <code>boolean</code>. Everything is explicitly typed
+(except that if you omit a type specifier, you get <code>real</code>.
+Everything is an expression, including entire scripts. Variables are immutable
+and looping must be done via recursion.</p>
+
+<p></p>
+<ul>
+<li><code>real</code>s are ordinary numbers. The usual set of binary operators
+are supported.<br>
+</li>
+<li><code>boolean</code>s are truth values used in conditionals. <code>true</code>
+and <code>false</code> produce boolean constants. You can assign these to
+variables if you wish, but it's not common.</li>
+<li><code>vectors</code> are XYZ vectors of reals. Vectors are constructed
+using the <code>&lt;0, 1, 2&gt;</code> syntax.</li>
+</ul>
+
+<h3>Functions and variables</h3>
+
+<p>Variables and functions are defined using the <code>let</code> operator.
+This comes in two varieties:</p>
+<pre>let VARIABLENAME: TYPE = EXPR1 ; EXPR2</pre>
+<pre>let FUNCTIONNAME(ARGUMENTS): TYPE = EXPR1 ; EXPR2</pre>
+
+<p>Both these forms introduce a new value into EXPR2's scope. For example:</p>
+<pre>let i: real = 4;
+let j: vector = <a href="/calculon/wiki?name=i%2C+0%2C+7">i, 0, 7</a>;
+let sum(v: vector): real = v.x + v.y + v.z;
+sum(j)</pre>
+
+<p>If a type specifier is omitted, the type is assumed to be a real (as that is
+the most common case). So the above example could be written:</p>
+<pre>let i = 4;
+let j: vector = i, 0, 7;
+let sum(v: vector) = v.x + v.y + v.z;
+sum(j)
+</pre>
+
+<p>It is important to note that when let is used to define a <i>variable</i>,
+the new name enters scope only in EXPR2. When let is used to define a <i>function</i>,
+it is also available to the function body (to allow recursion). So:</p>
+<pre>let x = 1;
+let x = x + 1;  /* x in the body here refers to previous line */
+(x == 2)        /* evaluates to true */</pre>
+
+<p>But:</p>
+<pre>let x() = 1;
+let x() = x() + 1;
+x() /* whoops! Infinite recursion! */</pre>
+
+<p>It's worth pointing out that the ; is a <i>separator</i>, and not a <i>terminator</i>,
+and is logically part of the let expression.</p>
+
+<h3>Conditionals</h3>
+
+<p>Conditional expressions are handled with the if...then...else expression,
+which works like this:</p>
+<pre>if BOOLEAN then TRUE-EXPRESSION else FALSE-EXPRESSION</pre>
+
+<p>The expression as a whole returns whichever of TRUE-EXPRESSION or
+FALSE-EXPRESSION gets evaluated (and therefore they must be the same type).</p>
+
+<p>Boolean values support the usual and, or and not operators, which do
+expression short-circuiting. They may also be compared for equality.</p>
+
+<p>For example:</p>
+<pre>if (x == 4) and (y == 9) then function1() else function2()</pre>

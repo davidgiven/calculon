@@ -1,0 +1,44 @@
+<p>Calculon is a very simple but very fast programming language designed to be
+embedded into other programs. It uses LLVM to generate high-quality machine
+code and is ideal for shaders, user-supplied mathematical formulae, etc.</p>
+
+<p>The Calculon language itself is a pure functional language with support for
+upvalues, tail recursion, and bindings to the standard maths library. It
+supports 3-vectors, reals and booleans as first-class values.</p>
+
+<p>Here is an example of a minimal Calculon script:</p>
+
+<pre>0</pre>
+
+<p>Here is a more complicated one; this calculates a colour of one pixel in the
+Mandelbrot set:</p>
+
+<pre>/* On input, r and i specify the location in the set */
+let cr = r;
+let ci = i;
+let maxi = 32;
+
+let iterations(r, i, n) =
+  if n &gt; maxi or (r*r + i*i) &gt; 4 then
+    n
+  else
+    iterations(r*r - i*i + cr, 2*r*i + ci, n+1);
+
+let n = iterations(r, i, 0);
+if n &gt; maxi then 0 else n
+</pre>
+
+<p>A Calculon script can be loaded, compiled and then run in about five lines
+of C++. Once compiled, run-time overheads are nil: the script becomes a simple
+function pointer that can be called whenever necessary. (You may find it
+interesting to <a href="https://cowlark.com/calculon/doc/tip/fractal.cc">see
+the driver program that runs the above script</a>.)</p>
+
+<p>Calculon can be configured to use either doubles or floats as the native
+real type. (You can use both types of Calculon &nbsp;script side-by-side in the
+same program.) Vectors are accelerated using SIMD operations where possible.
+External functions can be trivially made available to Calculon scripts.</p>
+
+<p>The entire library is 3000 lines of code and is supplied as a set of headers
+--- installation is trivial.</p>
+
