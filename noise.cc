@@ -34,6 +34,8 @@ int main(int argc, const char* argv[])
 	    		"height of output image")
 	    ("file,f",   po::value<string>()->default_value("noise.cal"),
 	    		"input Calculon script name")
+		("dump,d",
+				"dump LLVM bitcode after compilation")
 	    ("output,o", po::value<string>()->default_value("noise.ppm"),
 	    		"output filename")
 	;
@@ -52,6 +54,7 @@ int main(int argc, const char* argv[])
 	int height = vm["height"].as<int>();
 	string scriptfilename = vm["file"].as<string>();
 	string outputfilename = vm["output"].as<string>();
+	bool dump = (vm.count("dump") > 0);
 
 	/* Register the noise function. */
 
@@ -62,7 +65,8 @@ int main(int argc, const char* argv[])
 	typedef void FractalFunction(Vector* result, Real r, Real i);
 	std::ifstream code(scriptfilename.c_str());
 	Compiler::Program<FractalFunction> func(symbols, code, "(x,y):vector");
-	func.dump();
+	if (dump)
+		func.dump();
 
 	/* Open the output file. */
 

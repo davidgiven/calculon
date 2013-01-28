@@ -36,6 +36,8 @@ int main(int argc, const char* argv[])
 	    		"height of output image")
 	    ("file,f",   po::value<string>()->default_value("fractal.cal"),
 	    		"input Calculon script name")
+	    ("dump,d",
+	    		"dump LLVM bitcode after compilation")
 	    ("output,o", po::value<string>()->default_value("fractal.pgm"),
 	    		"output filename")
 	;
@@ -58,13 +60,15 @@ int main(int argc, const char* argv[])
 	int height = vm["height"].as<int>();
 	string scriptfilename = vm["file"].as<string>();
 	string outputfilename = vm["output"].as<string>();
+	bool dump = (vm.count("dump") > 0);
 
 	/* Load the Calculon function to generate the pixels. */
 
 	typedef Real FractalFunction(Real r, Real i);
 	std::ifstream code(scriptfilename.c_str());
 	Compiler::Program<FractalFunction> func(symbols, code, "(r,i)");
-	func.dump();
+	if (dump)
+		func.dump();
 
 	/* Open the output file. */
 

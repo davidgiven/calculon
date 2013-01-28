@@ -302,7 +302,7 @@ namespace Calculon
 				llvm::InitializeNativeTarget();
 
 				llvm::TargetOptions options;
-				options.PrintMachineCode = true;
+//				options.PrintMachineCode = true;
 				options.UnsafeFPMath = true;
 				options.RealignStack = true;
 				options.LessPreciseFPMADOption = true;
