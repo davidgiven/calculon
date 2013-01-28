@@ -6,65 +6,78 @@
 Everything is an expression, including entire scripts. Variables are immutable
 and looping must be done via recursion.</p>
 
-<p></p>
+<p>The following list describes the major syntactic elements:</p>
+
 <ul>
-<li><code>real</code>s are ordinary numbers. The usual set of binary operators
-are supported.<br>
-</li>
-<li><code>boolean</code>s are truth values used in conditionals. <code>true</code>
-and <code>false</code> produce boolean constants. You can assign these to
-variables if you wish, but it's not common.</li>
-<li><code>vectors</code> are XYZ vectors of reals. Vectors are constructed
-using the <code>&lt;0, 1, 2&gt;</code> syntax.</li>
+<li><code>0</code> is a real constant.</li>
+<li><code>true</code> or <code>false</code> are boolean constants.</li>
+<li><code>&#91;0, 1, 2]</code> is a vector. The elements must be reals (but need not be constant).</li>
+<li><code>sqrt(2)</code> calls a function. Functions may take any number of parameters, of any type, and return a single parameter, of any type. Functions are not polymorphic.</li>
+<li><code>V.x, V.y, V.z</code> extract individual elements from a vector.</li>
+<li><code>V.length2, V.length</code> compute the square of the length and the length of the vector (in, hopefully, an efficient manner). <code>V.length == sqrt(V.length2)</code>, of course.</li>
+<li><code>let i = 1; ...expr...</code> defines a variable that becomes available when evaluating <code>expr</code>. The new variable is does not have an explicit type and is therefore considered to be a real (no type inference is done).</li>
+<li><code>let v: vector = &#91;0, 1, 2]; ...expr...</code> defines a variable that becomes available when evaluating <code>expr</code>. The new variable is explicitly typed.</li>
+<li><code>let f(v1:vector, v2:vector):vector = v1 + v2; ...expr...</code> defines a function. The new function is available both when evaluating <code>expr</code> <b>and</b> inside the function body, which allows recursion. Note that the scoping rules here are different to when you define a variable!</li>
+<li><code>if booleanvalue then truevalue else falsevalue</code> does conditional evaluation. If <code>booleanvalue</code> is <code>true</code> then <code>truevalue</code> is evaluated; otherwise <code>falsevalue</code> is evaluated. Both must have the same type.</li>
 </ul>
 
-<h3>Functions and variables</h3>
+<p>In addition the usual set of infix and prefix operators are available:</p>
 
-<p>Variables and functions are defined using the <code>let</code> operator.
-This comes in two varieties:</p>
-<pre>let VARIABLENAME: TYPE = EXPR1 ; EXPR2</pre>
-<pre>let FUNCTIONNAME(ARGUMENTS): TYPE = EXPR1 ; EXPR2</pre>
+<ul>
+<li>For <b>booleans</b>: <code>==</code>, <code>!=</code>, <code>and</code>, <code>or</code>, <code>not</code>. <code>and</code> and <code>or</code> are short-circuiting.</li>
+<li>For <b>vectors</b>: <code>==</code, <code>!=</code>, <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>. <code>*</code> and <code>/</code> take a real as their second parameter.</li>
+<li>For <b>reals</b>: all the usual C-like operators. Complain if you find any missing. Also <code>^</code> is available to raise one number to the power of another.</li>
+</ul>
 
-<p>Both these forms introduce a new value into EXPR2's scope. For example:</p>
-<pre>let i: real = 4;
-let j: vector = <a href="/calculon/wiki?name=i%2C+0%2C+7">i, 0, 7</a>;
-let sum(v: vector): real = v.x + v.y + v.z;
-sum(j)</pre>
+<p>The order of precedence, from highest to lowest, is: unary operators, multiplication and division, addition and subtraction, comparisons, boolean operators, <code>if</code>...<code>then</code>...<code>else</code>, <code>let</code>.</p>
 
-<p>If a type specifier is omitted, the type is assumed to be a real (as that is
-the most common case). So the above example could be written:</p>
-<pre>let i = 4;
-let j: vector = i, 0, 7;
-let sum(v: vector) = v.x + v.y + v.z;
-sum(j)
-</pre>
+<p>Most of the standard maths library is bound. They all behave exactly like their Posix namesakes. As of writing, the list consists of:</p>
 
-<p>It is important to note that when let is used to define a <i>variable</i>,
-the new name enters scope only in EXPR2. When let is used to define a <i>function</i>,
-it is also available to the function body (to allow recursion). So:</p>
-<pre>let x = 1;
-let x = x + 1;  /* x in the body here refers to previous line */
-(x == 2)        /* evaluates to true */</pre>
-
-<p>But:</p>
-<pre>let x() = 1;
-let x() = x() + 1;
-x() /* whoops! Infinite recursion! */</pre>
-
-<p>It's worth pointing out that the ; is a <i>separator</i>, and not a <i>terminator</i>,
-and is logically part of the let expression.</p>
-
-<h3>Conditionals</h3>
-
-<p>Conditional expressions are handled with the if...then...else expression,
-which works like this:</p>
-<pre>if BOOLEAN then TRUE-EXPRESSION else FALSE-EXPRESSION</pre>
-
-<p>The expression as a whole returns whichever of TRUE-EXPRESSION or
-FALSE-EXPRESSION gets evaluated (and therefore they must be the same type).</p>
-
-<p>Boolean values support the usual and, or and not operators, which do
-expression short-circuiting. They may also be compared for equality.</p>
-
-<p>For example:</p>
-<pre>if (x == 4) and (y == 9) then function1() else function2()</pre>
+<ul>
+<li><code>acos()</code></li>
+<li><code>acosh()</code></li>
+<li><code>asin()</code></li>
+<li><code>asinh()</code></li>
+<li><code>atan()</code></li>
+<li><code>atan2()</code></li>
+<li><code>atanh()</code></li>
+<li><code>cbrt()</code></li>
+<li><code>ceil()</code></li>
+<li><code>copysign()</code></li>
+<li><code>cos()</code></li>
+<li><code>cosh()</code></li>
+<li><code>erf()</code></li>
+<li><code>erfc()</code></li>
+<li><code>exp()</code></li>
+<li><code>exp2()</code></li>
+<li><code>expm1()</code></li>
+<li><code>fabs()</code></li>
+<li><code>fdim()</code></li>
+<li><code>floor()</code></li>
+<li><code>fma()</code></li>
+<li><code>fmax()</code></li>
+<li><code>fmin()</code></li>
+<li><code>fmod()</code></li>
+<li><code>hypot()</code></li>
+<li><code>j0()</code></li>
+<li><code>j1()</code></li>
+<li><code>lgamma()</code></li>
+<li><code>log()</code></li>
+<li><code>log10()</code></li>
+<li><code>log1p()</code></li>
+<li><code>log2()</code></li>
+<li><code>logb()</code></li>
+<li><code>nearbyint()</code></li>
+<li><code>pow()</code></li>
+<li><code>remainder()</code></li>
+<li><code>rint()</code></li>
+<li><code>round()</code></li>
+<li><code>sin()</code></li>
+<li><code>sinh()</code></li>
+<li><code>sqrt()</code></li>
+<li><code>tan()</code></li>
+<li><code>tgamma()</code></li>
+<li><code>trunc()</code></li>
+<li><code>y0()</code></li>
+<li><code>y1()</code></li>
+</ul>
