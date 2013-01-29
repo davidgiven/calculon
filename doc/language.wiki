@@ -2,84 +2,105 @@
 
 <h3>Introduction</h3>
 
-<p>The Calculon language is extremely simple. There are three types, <code>real</code>,
+The Calculon language is extremely simple. There are three types, <code>real</code>,
 <code>vector</code> and <code>boolean</code>. Everything is explicitly typed
 (except that if you omit a type specifier, you get <code>real</code>.
 Everything is an expression, including entire scripts. Variables are immutable
-and looping must be done via recursion.</p>
+and looping must be done via recursion.
 
-<p>The following list describes the major syntactic elements:</p>
+The following list describes the major syntactic elements:
 
-<ul>
-<li><code>0</code> is a real constant.</li>
-<li><code>true</code> or <code>false</code> are boolean constants.</li>
-<li><code>&#91;0, 1, 2]</code> is a vector. The elements must be reals (but need not be constant).</li>
-<li><code>sqrt(2)</code> calls a function. Functions may take any number of parameters, of any type, and return a single parameter, of any type. Functions are not polymorphic.</li>
-<li><code>V.x, V.y, V.z</code> extract individual elements from a vector.</li>
-<li><code>V.length2, V.length</code> compute the square of the length and the length of the vector (in, hopefully, an efficient manner). <code>V.length == sqrt(V.length2)</code>, of course.</li>
-<li><code>let i = 1; ...expr...</code> defines a variable that becomes available when evaluating <code>expr</code>. The new variable is does not have an explicit type and is therefore considered to be a real (no type inference is done).</li>
-<li><code>let v: vector = &#91;0, 1, 2]; ...expr...</code> defines a variable that becomes available when evaluating <code>expr</code>. The new variable is explicitly typed.</li>
-<li><code>let f(v1:vector, v2:vector):vector = v1 + v2; ...expr...</code> defines a function. The new function is available both when evaluating <code>expr</code> <b>and</b> inside the function body, which allows recursion. Note that the scoping rules here are different to when you define a variable!</li>
-<li><code>if booleanvalue then truevalue else falsevalue</code> does conditional evaluation. If <code>booleanvalue</code> is <code>true</code> then <code>truevalue</code> is evaluated; otherwise <code>falsevalue</code> is evaluated. Both must have the same type.</li>
-</ul>
+  *  <code>0</code> is a real constant.
+  *  <code>true</code> or <code>false</code> are boolean constants.
+  *  <code>&#91;0, 1, 2]</code> is a vector. The elements must be reals (but
+     need not be constant).
+  *  <code>sqrt(2)</code> calls a function. Functions may take any number of
+     parameters, of any type, and return a single parameter, of any type.
+     Functions are not polymorphic.
+  *  <code>V.x, V.y, V.z</code> extract individual elements from a vector.
+  *  <code>V.length2, V.length</code> compute the square of the length and
+     the length of the vector (in, hopefully, an efficient manner).
+     <code>V.length == sqrt(V.length2)</code>, of course.
+  *  <code>let i = 1; ...expr...</code> defines a variable that becomes
+     available when evaluating <code>expr</code>. The new variable is does
+     not have an explicit type and is therefore considered to be a real (no
+     type inference is done).
+  *  <code>let v: vector = &#91;0, 1, 2]; ...expr...</code> defines a variable
+     that becomes available when evaluating <code>expr</code>. The new
+     variable is explicitly typed.
+  *  <code>let f(v1:vector, v2:vector):vector = v1 + v2; ...expr...</code>
+     defines a function. The new function is available both when evaluating
+     <code>expr</code> <b>and</b> inside the function body, which allows
+     recursion. Note that the scoping rules here are different to when you
+     define a variable!
+  *  <code>if booleanvalue then truevalue else falsevalue</code> does 
+     conditional evaluation. If <code>booleanvalue</code> is <code>true</code>
+     then <code>truevalue</code> is evaluated; otherwise
+     <code>falsevalue</code> is evaluated. Both must have the same type.
 
-<p>In addition the usual set of infix and prefix operators are available:</p>
+In addition the usual set of infix and prefix operators are available:
 
-<ul>
-<li>For <b>booleans</b>: <code>==</code>, <code>!=</code>, <code>and</code>, <code>or</code>, <code>not</code>. <code>and</code> and <code>or</code> are short-circuiting.</li>
-<li>For <b>vectors</b>: <code>==</code, <code>!=</code>, <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>. <code>*</code> and <code>/</code> take a real as their second parameter.</li>
-<li>For <b>reals</b>: all the usual C-like operators. Complain if you find any missing. Also <code>^</code> is available to raise one number to the power of another.</li>
-</ul>
+  *  For <b>booleans</b>: <code>==</code>, <code>!=</code>,
+     <code>and</code>, <code>or</code>, <code>not</code>. <code>and</code>
+     and <code>or</code> are short-circuiting.
+  *  For <b>vectors</b>: <code>==</code, <code>!=</code>, <code>+</code>,
+     <code>-</code>, <code>*</code>, <code>/</code>. <code>*</code> and
+     <code>/</code> take a real as their second parameter.
+  *  For <b>reals</b>: all the usual C-like operators. Complain if you find 
+     any missing. Also <code>^</code> is available to raise one number to the
+     power of another.
 
-<p>The order of precedence, from highest to lowest, is: unary operators, multiplication and division, addition and subtraction, comparisons, boolean operators, <code>if</code>...<code>then</code>...<code>else</code>, <code>let</code>.</p>
+The order of precedence, from highest to lowest, is: unary operators,
+multiplication and division, addition and subtraction, comparisons, boolean
+operators, <code>if</code>...<code>then</code>...<code>else</code>,
+<code>let</code>.
 
-<p>Most of the standard maths library is bound. They all behave exactly like their Posix namesakes. As of writing, the list consists of:</p>
+Most of the standard maths library is bound. They all behave exactly like
+their Posix namesakes. As of writing, the list consists of:
 
-<ul>
-<li><code>acos()</code></li>
-<li><code>acosh()</code></li>
-<li><code>asin()</code></li>
-<li><code>asinh()</code></li>
-<li><code>atan()</code></li>
-<li><code>atan2()</code></li>
-<li><code>atanh()</code></li>
-<li><code>cbrt()</code></li>
-<li><code>ceil()</code></li>
-<li><code>copysign()</code></li>
-<li><code>cos()</code></li>
-<li><code>cosh()</code></li>
-<li><code>erf()</code></li>
-<li><code>erfc()</code></li>
-<li><code>exp()</code></li>
-<li><code>exp2()</code></li>
-<li><code>expm1()</code></li>
-<li><code>fabs()</code></li>
-<li><code>fdim()</code></li>
-<li><code>floor()</code></li>
-<li><code>fma()</code></li>
-<li><code>fmax()</code></li>
-<li><code>fmin()</code></li>
-<li><code>fmod()</code></li>
-<li><code>hypot()</code></li>
-<li><code>j0()</code></li>
-<li><code>j1()</code></li>
-<li><code>lgamma()</code></li>
-<li><code>log()</code></li>
-<li><code>log10()</code></li>
-<li><code>log1p()</code></li>
-<li><code>log2()</code></li>
-<li><code>logb()</code></li>
-<li><code>nearbyint()</code></li>
-<li><code>pow()</code></li>
-<li><code>remainder()</code></li>
-<li><code>rint()</code></li>
-<li><code>round()</code></li>
-<li><code>sin()</code></li>
-<li><code>sinh()</code></li>
-<li><code>sqrt()</code></li>
-<li><code>tan()</code></li>
-<li><code>tgamma()</code></li>
-<li><code>trunc()</code></li>
-<li><code>y0()</code></li>
-<li><code>y1()</code></li>
-</ul>
+  *  <code>acos()</code>
+  *  <code>acosh()</code>
+  *  <code>asin()</code>
+  *  <code>asinh()</code>
+  *  <code>atan()</code>
+  *  <code>atan2()</code>
+  *  <code>atanh()</code>
+  *  <code>cbrt()</code>
+  *  <code>ceil()</code>
+  *  <code>copysign()</code>
+  *  <code>cos()</code>
+  *  <code>cosh()</code>
+  *  <code>erf()</code>
+  *  <code>erfc()</code>
+  *  <code>exp()</code>
+  *  <code>exp2()</code>
+  *  <code>expm1()</code>
+  *  <code>fabs()</code>
+  *  <code>fdim()</code>
+  *  <code>floor()</code>
+  *  <code>fma()</code>
+  *  <code>fmax()</code>
+  *  <code>fmin()</code>
+  *  <code>fmod()</code>
+  *  <code>hypot()</code>
+  *  <code>j0()</code>
+  *  <code>j1()</code>
+  *  <code>lgamma()</code>
+  *  <code>log()</code>
+  *  <code>log10()</code>
+  *  <code>log1p()</code>
+  *  <code>log2()</code>
+  *  <code>logb()</code>
+  *  <code>nearbyint()</code>
+  *  <code>pow()</code>
+  *  <code>remainder()</code>
+  *  <code>rint()</code>
+  *  <code>round()</code>
+  *  <code>sin()</code>
+  *  <code>sinh()</code>
+  *  <code>sqrt()</code>
+  *  <code>tan()</code>
+  *  <code>tgamma()</code>
+  *  <code>trunc()</code>
+  *  <code>y0()</code>
+  *  <code>y1()</code>

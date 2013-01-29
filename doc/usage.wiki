@@ -2,15 +2,15 @@
 
 <h3>Introduction</h3>
 
-<p>The Calculon library is extremely simple. It is supplied as a set of
+The Calculon library is extremely simple. It is supplied as a set of
 headers; to use the library, create a type instance of the compiler, create
 the global symbol table, and then you can instantiate functions. If compiling
 a script fails, an exception is thrown. If that succeeds, you have an object
-which you can just call.</p>
+which you can just call.
 
-<p>Here is an annotated example.</p>
+Here is an annotated example.
 
-<pre>
+<verbatim>
 /* Create the type instance, and pull some useful types out of it */
 typedef Calculon::Instance<Calculon::RealIsDouble> Compiler;
 typedef Compiler::Real Real;
@@ -32,67 +32,69 @@ Compiler::Program<ScriptFunction> function(symbols, code,
 /* Call the function */
 
 Real result = function(1, -1);
-</pre>
+</verbatim>
 
-<p>...and that's pretty much it. <code>function()</code> may be called as
+...and that's pretty much it. <code>function()</code> may be called as
 many times as you like and is thread-safe. When it goes out of scope it will
-be destroyed.</p>
+be destroyed.
 
 <h3>Configurations</h3>
 
-<p>Right now there are two forms of the Calculon compiler you can use. This:
+Right now there are two forms of the Calculon compiler you can use. This:
 
-<pre>typedef Calculon::Instance<Calculon::RealIsDouble> Compiler;
-</pre>
+<verbatim>
+typedef Calculon::Instance<Calculon::RealIsDouble> Compiler;
+</verbatim>
 
-<p>...and this:</p>
+...and this:
 
-<pre>typedef Calculon::Instance<Calculon::RealIsFloat> Compiler;
-</pre>
+<verbatim>
+typedef Calculon::Instance<Calculon::RealIsFloat> Compiler;
+</verbatim>
 
-<p>These control whether Calculon's <code>real</code> type is a
+These control whether Calculon's <code>real</code> type is a
 single-precision or double-precision. There may be more configurations in
-the future.</p>
+the future.
 
-<p>You can use both at the same time, if you wish.</p>
+You can use both at the same time, if you wish.
 
 <h3>Calling conventions</h3>
 
-<p>Alas, the mapping between C++ parameters and Calculon parameters is not
-quite obvious.</p>
+Alas, the mapping between C++ parameters and Calculon parameters is not
+quite obvious.
 
-<p>Calculon reals are available as <code>Compiler::Real</code>, and Calculon
+Calculon reals are available as <code>Compiler::Real</code>, and Calculon
 vectors as <code>Compiler::Vector</code>. Reals are passed in the obvious
 way, as in the example above. However, vectors are passed by pointer. If the
 Calculon script returns a vector, then an extra initial parameter is added
-which points to where the return parameter should be written.</p>
+which points to where the return parameter should be written.
 
-<p>For example:</p>
+For example:
 
-<pre>
+<verbatim>
 /* f1(x: real, y: real, v: vector): real */
 typedef Real f1(Real x, Real y, Vector* v);
 
 /* f2(x: real, y: real, v: vector): vector */
 typedef void f2(Vector* result, Real x, Real y, Vector* v);
-</pre>
+</verbatim>
 
-<p>To call such a function, create some Vector objects somewhere and pass
-their pointers in. The stack will do fine.</p>
+To call such a function, create some Vector objects somewhere and pass
+their pointers in. The stack will do fine.
 
-<pre>
+<verbatim>
 Vector result;
 Vector v = {0, 1, 2};
 f2(&result, 7, 8, &v);
-</pre>
+</verbatim>
 
 <h3>Registering functions</h3>
 
-<p>Functions may be trivially added to the symbol table. (You may create as
+Functions may be trivially added to the symbol table. (You may create as
 many symbol tables as you wish; the symbol table is only ever used during the
-compilation process. Symbol tables are not thread safe!)</p>
+compilation process. Symbol tables are not thread safe!)
 
-<pre>
+<verbatim>
 extern "C"
 double perlin(Vector* v)
 {
@@ -101,14 +103,14 @@ double perlin(Vector* v)
 
 Compiler::StandardSymbolTable symbols;
 symbols.add("perlin", "D=V", perlin);
-</pre>
+</verbatim>
 
-<p>The first parameter specifies the name; the second parameter describes the
-function; the third parameter is the function to call.</p>
+The first parameter specifies the name; the second parameter describes the
+function; the third parameter is the function to call.
 
-<p>The first character of the parameter description describes the return type,
+The first character of the parameter description describes the return type,
 and the characters after the equals sign describes the parameters. The
-characters have the following meaning:</p>
+characters have the following meaning:
 
 <dl>
 <dt><code>V</code></dt>
@@ -124,28 +126,28 @@ single-precision floats, the value will be converted automatically)</dd>
 <code>Compiler::Real</code> as the type of this parameter)</dd>
 </dl>
 
-<p>Vectors are passed in and out in the same way as for Calculon scripts.</p>
+Vectors are passed in and out in the same way as for Calculon scripts.
 
-<p>Note carefully! Calculon is designed for scripts that have <b>no side
+Note carefully! Calculon is designed for scripts that have <b>no side
 effects</b>. If you call out to a function which does something... well, it'll
 work, but the Calculon compiler is allowed to assume that if it calls the
 function once with a set of parameters, it can call it again with the same
 parameters and get the same result. Be careful. (And don't forget that
-<code>rand()</code> has side effects.)</p>
+<code>rand()</code> has side effects.)
 
 <h3>Dependencies</h3>
 
-<p>The Calculon library uses the STL and iostreams. It does not use Boost or
+The Calculon library uses the STL and iostreams. It does not use Boost or
 C++11, for maximum compatibility. Fairly obviously, it uses LLVM 3.2. It may
 or may not work with other versions of LLVM. (If you need it to work on another
-version, please <a href="mailto:dg@cowlark.com">get in touch</a>.)</p>
+version, please <a href="mailto:dg@cowlark.com">get in touch</a>.)
 
-<p>The supplied <a href="../Makefile">sample Makefile</a> shows the recommended
-way to build programs that use Calculon, but the short summary is:</p>
+The supplied <a href="../Makefile">sample Makefile</a> shows the recommended
+way to build programs that use Calculon, but the short summary is:
 
-<pre>
+<verbatim>
 g++ -I$(shell llvm-config-3.2 --includedir) -lLLVM-3.2 program.cc
-</pre>
+</verbatim>
 
-<p>Calculon works with both gcc and clang++. I haven't tried with Visual
-Studio (I'd appreciate any reports of workingness or otherwise).</p>
+Calculon works with both gcc and clang++. I haven't tried with Visual
+Studio (I'd appreciate any reports of workingness or otherwise).
