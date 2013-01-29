@@ -4,6 +4,7 @@
 #include <math.h>
 #include <boost/program_options.hpp>
 #include "libnoise/noise.h"
+
 #include "calculon.h"
 
 using std::string;

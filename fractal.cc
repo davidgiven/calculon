@@ -4,7 +4,6 @@
 #include <math.h>
 #include <boost/program_options.hpp>
 
-#undef NDEBUG
 #include "calculon.h"
 
 using std::string;
