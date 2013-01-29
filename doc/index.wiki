@@ -37,6 +37,7 @@ I'm interested.)</p>
 
 <ul>
 <li><a href="language.wiki">A very brief description of the Calculon language</a></li>
+<li><a href="usage.wiki">Using the Calculon library</a></li>
 </ul>
 
 <h3>Why should I use it?</h3>

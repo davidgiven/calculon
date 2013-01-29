@@ -1,3 +1,5 @@
+<title>A brief description of the Calculon language</title>
+
 <h3>Introduction</h3>
 
 <p>The Calculon language is extremely simple. There are three types, <code>real</code>,
