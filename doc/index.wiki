@@ -21,9 +21,9 @@ supports 3-vectors, reals and booleans as first-class values.
 </blockquote>
 
 In addition, you can download
-an <a href="../../../tarball/calculon-tip.tar.gz?uuid=tip">automatically generated
-source package</a>. This is straight out of the DVCS and is not guaranteed to
-build. I'd recommend using the formal release above.
+an <a href="../../../tarball/calculon-tip.tar.gz?uuid=tip">the latest version
+from the VCS</a>. This is not guaranteed to work, or even to build. I'd
+recommend using the formal release above.
 
 Another way of getting the version under development is by
 checking out the source repository using <a href="http://fossil-scm.org">the
