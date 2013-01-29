@@ -12,11 +12,11 @@ all: fractal noise filter
 clean:
 	rm -f fractal noise filter
 
-fractal: fractal.cc Makefile $(wildcard calculon*.h)
+fractal: fractal.cc Makefile $(wildcard ../include/calculon*.h)
 	$(CXX) $(CFLAGS) -o $@ $< $(LLVM) -lboost_program_options
 	
-noise: noise.cc Makefile $(wildcard calculon*.h)
+noise: noise.cc Makefile $(wildcard ../include/calculon*.h)
 	$(CXX) $(CFLAGS) -o $@ $< $(LLVM) -lnoise -lboost_program_options
 		
-filter: filter.cc Makefile $(wildcard calculon*.h)
+filter: filter.cc Makefile $(wildcard ../include/calculon*.h)
 	$(CXX) $(CFLAGS) -o $@ $< $(LLVM) -lboost_program_options
