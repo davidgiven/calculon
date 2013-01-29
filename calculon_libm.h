@@ -1,3 +1,8 @@
+/* Calculon © 2013 David Given
+ * This code is made available under the terms of the Simplified BSD License.
+ * Please see the COPYING file for the full license text.
+ */
+
 #ifndef CALCULON_H
 #error "Don't include this, include calculon.h instead."
 #endif
