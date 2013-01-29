@@ -1,0 +1,75 @@
+                               CALCULON v0.1
+                               =============
+                                  
+                         Copyright (C) 2013 David Given
+                                 2013-01-29
+            
+            
+                                 
+INTRODUCTION
+============
+
+Calculon is a very small but very fast designed to be embedded into other
+programs. It uses LLVM to generate high-quality machine code and is ideal for
+shaders, user-supplied mathematical formulae, etc.
+
+The Calculon language itself is a pure functional language with support for
+upvalues, tail recursion, and bindings to the standard maths library. It
+supports 3-vectors, reals and booleans as first-class values.
+
+
+
+SETUP
+=====
+
+Calculon is shipped as a set of headers, and doesn't need building itself.
+To use, all you need to do is to copy the contents of the include directory
+somewhere where your program can see it and include 'calculon.h' (plus, of
+course, you have to link against LLVM).
+
+If you're not using C++, you're probably out of luck. Get in touch if you
+need to use it from another language; a set of C shims is probably fairly
+easy.
+
+Some sample programs and a Makefile which builds them are supplied:
+
+fractal
+  Generates an image by running the fractal.cal script for each pixel and
+  plotting the result as intensity; the supplied fractal.cal draws a
+  Mandelbrot.
+  
+noise
+  Illustrates calling out to external functions from with a Calculon script.
+  Uses libnoise to generate an image full of Perlin noise.
+  
+filter
+  Provides a very easy way to run Calculon scripts on data: filters numbers
+  from stdin to stdout, processing each one with a supplied script.
+
+
+
+MORE INFORMATION
+================
+
+Calculon's home is at http://cowlark.com/calculon.
+
+Alternatively, you will find a copy of the website (in easier-to-read more-or-
+less plain text format) in the doc directory.
+
+
+
+THE AUTHOR
+==========
+
+Calculon was written by me, David Given. You may contact me at dg@cowlark.com,
+or visit my website at http://www.cowlark.com. There may or may not be
+anything interesting there.
+
+
+
+LICENSING
+=========
+
+Calculon is licensed under the Simplified BSD license. See COPYING for the
+full text.
+
