@@ -216,7 +216,7 @@ private:
 		if (lexer.token() != token)
 		{
 			std::stringstream s;
-			s << "expected " << token;
+			s << "expected " << lexer.tokenname(token);
 			lexer.error(s.str());
 		}
 		lexer.next();

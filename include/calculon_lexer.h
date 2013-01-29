@@ -127,6 +127,29 @@ public:
 		throw LexerException(s, *this);
 	}
 
+	const char* tokenname(int token)
+	{
+		switch (token)
+		{
+			case ENDOFFILE:  return "EOF";
+			case NUMBER:     return "number";
+			case IDENTIFIER: return "identifier";
+			case OPERATOR:   return "operator";
+			case EQUALS:     return "'='";
+			case OPENPAREN:  return "'('";
+			case CLOSEPAREN: return "')'";
+			case OPENBLOCK:  return "'['";
+			case CLOSEBLOCK: return "']'";
+			case COMMA:      return "','";
+			case COLON:      return "':'";
+			case SEMICOLON:  return "';'";
+			case DOT:        return "'.'";
+
+			default:
+				assert(false);
+		}
+	}
+
 private:
 	bool isid(int c)
 	{
@@ -196,7 +219,7 @@ private:
 		for (;;)
 		{
 			if (_data.eof())
-				error("unexpected EOF in multiline comment");
+				error("unexpected end of file in multiline comment");
 
 			int c = consume();
 			if ((c == '*') && (_data.peek() == '/'))
