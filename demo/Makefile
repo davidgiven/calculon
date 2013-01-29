@@ -5,7 +5,7 @@ CXX = g++
 #CXX = clang++
 
 LLVM = -I$(shell llvm-config-3.2 --includedir) -lLLVM-3.2
-CFLAGS = -O3
+CFLAGS = -O3 -I../include
 
 all: fractal noise filter
 
