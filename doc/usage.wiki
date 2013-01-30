@@ -151,3 +151,10 @@ g++ -I$(shell llvm-config-3.2 --includedir) -lLLVM-3.2 program.cc
 
 Calculon works with both gcc and clang++. I haven't tried with Visual
 Studio (I'd appreciate any reports of workingness or otherwise).
+
+<h2 class='comments-title'>Comments on this page</h2>
+<table class='comments' border='0'><tr>
+<td id='commentator-viewer'></td>
+<td id='commentator-poster'></td>
+</tr></table>
+
