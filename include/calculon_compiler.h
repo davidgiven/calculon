@@ -344,7 +344,14 @@ private:
 
 			if ((id == "true") || (id == "false"))
 				return retain(new ASTBoolean(position, id));
-			return retain(new ASTVariable(position, id));
+			else if (id == "pi")
+				return retain(new ASTConstant(position, M_PI));
+			else if (id == "Inf")
+				return retain(new ASTConstant(position, INFINITY));
+			else if (id == "NaN")
+				return retain(new ASTConstant(position, NAN));
+			else
+				return retain(new ASTVariable(position, id));
 		}
 	}
 
