@@ -158,7 +158,7 @@ public:
 
 		MultipleSymbolTable symboltable(globals);
 		vector<llvm::Type*> llvmtypes;
-		for (int i=0; i<arguments.size(); i++)
+		for (unsigned i=0; i<arguments.size(); i++)
 		{
 			VariableSymbol* symbol = arguments[i];
 			symbol->function = functionsymbol;

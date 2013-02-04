@@ -448,7 +448,6 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 
 		string intrinsicName(const vector<llvm::Type*>& inputTypes)
 		{
-			llvm::Type* t = inputTypes[0];
 			const char* suffix = S::chooseDoubleOrFloat("", "f");
 			return name + suffix;
 		}

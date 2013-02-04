@@ -351,7 +351,7 @@ namespace Calculon
 					inputoffset = true;
 				}
 
-				for (int i=0; i<arguments.size(); i++)
+				for (unsigned i=0; i<arguments.size(); i++)
 				{
 					VariableSymbol* symbol = arguments[i];
 					externaltypes.push_back(compiler.getExternalType(symbol->type));
