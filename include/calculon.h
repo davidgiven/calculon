@@ -148,6 +148,9 @@ namespace Calculon
 			}
 		};
 
+		class TypeRegistry;
+		class Type;
+
 		class CompilerState : public Allocator
 		{
 		public:
@@ -156,16 +159,16 @@ namespace Calculon
 			llvm::IRBuilder<> builder;
 			llvm::ExecutionEngine* engine;
 			Position position;
+			TypeRegistry* types;
 			llvm::Type* intType;
 			llvm::Value* xindex;
 			llvm::Value* yindex;
 			llvm::Value* zindex;
-			llvm::Type* realType;
+			Type* realType;
 			llvm::Type* doubleType;
 			llvm::Type* floatType;
-			llvm::Type* vectorType;
-			llvm::PointerType* pointerType;
-			llvm::Type* booleanType;
+			Type* vectorType;
+			Type* booleanType;
 
 			CompilerState(llvm::LLVMContext& context, llvm::Module* module,
 					llvm::ExecutionEngine* engine):
@@ -173,52 +176,11 @@ namespace Calculon
 				module(module),
 				builder(context),
 				engine(engine),
+				types(NULL),
 				intType(NULL), xindex(NULL), yindex(NULL), zindex(NULL),
 				realType(NULL), doubleType(NULL), floatType(NULL),
-				vectorType(NULL), pointerType(NULL)
+				vectorType(NULL)
 			{
-			}
-
-			llvm::Type* getInternalType(char c)
-			{
-				switch (c)
-				{
-					case S::REAL:
-						return realType;
-
-					case S::VECTOR:
-						return vectorType;
-
-					case S::BOOLEAN:
-						return booleanType;
-				}
-
-				/* One of these duplicates S::REAL so we can't put it in the
-				 * switch above.
-				 */
-				if ((c == S::DOUBLE) || (c == S::FLOAT))
-					return realType;
-
-				assert(false);
-			}
-
-			llvm::Type* getExternalType(char c)
-			{
-				switch (c)
-				{
-					case S::VECTOR:
-						return pointerType;
-
-					case S::DOUBLE:
-						return doubleType;
-
-					case S::FLOAT:
-						return floatType;
-
-					default:
-						return getInternalType(c);
-				}
-				assert(false);
 			}
 
 			void storeVector(llvm::Value* v, llvm::Value* p)
@@ -238,7 +200,7 @@ namespace Calculon
 				llvm::Value* yv = builder.CreateLoad(builder.CreateStructGEP(p, 1));
 				llvm::Value* zv = builder.CreateLoad(builder.CreateStructGEP(p, 2));
 
-				llvm::Value* v = llvm::UndefValue::get(vectorType);
+				llvm::Value* v = llvm::UndefValue::get(vectorType->llvm);
 				v = builder.CreateInsertElement(v, xv, xindex);
 				v = builder.CreateInsertElement(v, yv, yindex);
 				v = builder.CreateInsertElement(v, zv, zindex);
@@ -248,6 +210,7 @@ namespace Calculon
 		};
 
 		#include "calculon_symbol.h"
+		#include "calculon_types.h"
 	public:
 		#include "calculon_intrinsics.h"
 	private:
@@ -338,15 +301,15 @@ namespace Calculon
 				const vector<VariableSymbol*>& arguments = f->arguments;
 				vector<llvm::Type*> externaltypes;
 
-				llvm::Type* returntype = compiler.getExternalType(f->returntype);
+				llvm::Type* returntype = f->returntype->llvmx;
 				bool inputoffset = false;
-				if (f->returntype == S::VECTOR)
+				if (f->returntype == compiler.vectorType)
 				{
 					/* Insert an argument at the front which is the return-by-
 					 * reference vector return value.
 					 */
 
-					externaltypes.push_back(compiler.getExternalType(S::VECTOR));
+					externaltypes.push_back(compiler.vectorType->llvm);
 					returntype = llvm::Type::getVoidTy(_context);
 					inputoffset = true;
 				}
@@ -354,7 +317,7 @@ namespace Calculon
 				for (unsigned i=0; i<arguments.size(); i++)
 				{
 					VariableSymbol* symbol = arguments[i];
-					externaltypes.push_back(compiler.getExternalType(symbol->type));
+					externaltypes.push_back(symbol->type->llvmx);
 				}
 
 				llvm::FunctionType* ft = llvm::FunctionType::get(
@@ -382,7 +345,7 @@ namespace Calculon
 						VariableSymbol* symbol = arguments[i];
 
 						v->setName(symbol->name);
-						if (symbol->type == S::VECTOR)
+						if (symbol->type == compiler.vectorType)
 							v = compiler.loadVector(v);
 
 						params.push_back(v);
@@ -395,7 +358,7 @@ namespace Calculon
 
 				llvm::Value* retval = f->emitCall(compiler, params);
 
-				if (f->returntype == S::VECTOR)
+				if (f->returntype == compiler.vectorType)
 				{
 					compiler.storeVector(retval, _function->arg_begin());
 					retval = NULL;

@@ -25,7 +25,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		llvm::Type* returnType(CompilerState& state,
 				const vector<llvm::Type*>& inputTypes)
 		{
-			return state.realType;
+			return state.realType->llvm;
 		}
 
 		llvm::Value* emitBitcode(CompilerState& state,
@@ -111,7 +111,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		llvm::Value* emitBitcode(CompilerState& state,
 					const vector<llvm::Value*>& parameters)
 		{
-			llvm::Type* type = parameters[0]->getType();
+			Type* type = state.types->find(parameters[0]->getType());
 
 			if (type == state.realType)
 				return state.builder.CreateFCmpOEQ(parameters[0], parameters[1]);
@@ -158,11 +158,11 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		{
 			llvm::Type* type = parameters[0]->getType();
 
-			if (type == state.realType)
+			if (type == state.realType->llvm)
 				return state.builder.CreateFCmpONE(parameters[0], parameters[1]);
-			else if (type == state.booleanType)
+			else if (type == state.booleanType->llvm)
 				return state.builder.CreateICmpNE(parameters[0], parameters[1]);
-			else if (type == state.vectorType)
+			else if (type == state.vectorType->llvm)
 			{
 				llvm::Value* x0 = state.builder.CreateExtractElement(
 						parameters[0], state.xindex);
@@ -293,7 +293,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		llvm::Type* returnType(CompilerState& state,
 				const vector<llvm::Type*>& inputTypes)
 		{
-			return state.realType;
+			return state.realType->llvm;
 		}
 
 		llvm::Value* emitBitcode(CompilerState& state,
@@ -326,7 +326,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		llvm::Type* returnType(CompilerState& state,
 				const vector<llvm::Type*>& inputTypes)
 		{
-			return state.realType;
+			return state.realType->llvm;
 		}
 
 		llvm::Value* emitBitcode(CompilerState& state,
@@ -346,7 +346,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 
 			llvm::Constant* f = state.module->getOrInsertFunction(
 					S::chooseDoubleOrFloat("llvm.sqrt.f64", "llvm.sqrt.f32"),
-					state.realType, NULL);
+					state.realType->llvm, NULL);
 
 			return state.builder.CreateCall(f, v);
 		}
@@ -364,7 +364,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		llvm::Type* returnType(CompilerState& state,
 				const vector<llvm::Type*>& inputTypes)
 		{
-			return state.realType;
+			return state.realType->llvm;
 		}
 
 		llvm::Value* emitBitcode(CompilerState& state,
@@ -387,7 +387,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		llvm::Type* returnType(CompilerState& state,
 				const vector<llvm::Type*>& inputTypes)
 		{
-			return state.realType;
+			return state.realType->llvm;
 		}
 
 		llvm::Value* emitBitcode(CompilerState& state,
@@ -410,7 +410,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		llvm::Type* returnType(CompilerState& state,
 				const vector<llvm::Type*>& inputTypes)
 		{
-			return state.realType;
+			return state.realType->llvm;
 		}
 
 		llvm::Value* emitBitcode(CompilerState& state,
@@ -436,7 +436,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		void typeCheckParameter(CompilerState& state,
 					int index, llvm::Value* argument, char type)
 		{
-			if (argument->getType() != state.realType)
+			if (argument->getType() != state.realType->llvm)
 				typeError(state, index, argument, type);
 		}
 
@@ -462,14 +462,32 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 	#undef REAL3
 	char _dummy;
 
+	static string convert_type_char(char c)
+	{
+		switch (c)
+		{
+			case 'R': return "real";
+			case 'V': return "vector";
+			case 'B': return "boolean";
+			case 'D': return " double";
+			case 'F': return " float";
+		}
+
+		std::stringstream s;
+		s << "type char '" << c << "' not recognised";
+		throw CompilationException(s.str());
+	}
+
 	void add(const string& name, const string& signature, void (*ptr)())
 	{
 		unsigned i = signature.find('=');
 		if (i != 1)
 			throw CompilationException("malformed external function signature");
 
-		char returntype = signature[0];
-		string inputtypes = signature.substr(2);
+		string returntype = convert_type_char(signature[0]);
+		vector<string> inputtypes;
+		for (unsigned i = 2; i < signature.size(); i++)
+			inputtypes.push_back(convert_type_char(signature[i]));
 
 		add(retain(new ExternalFunctionSymbol(name, inputtypes, returntype, ptr)));
 	}

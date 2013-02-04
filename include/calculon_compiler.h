@@ -25,19 +25,21 @@ private:
 	typedef pair<string, char> Argument;
 
 	using CompilerState::retain;
-	using CompilerState::getInternalType;
+	using CompilerState::types;
 	using CompilerState::intType;
 	using CompilerState::xindex;
 	using CompilerState::yindex;
 	using CompilerState::zindex;
+public:
 	using CompilerState::realType;
 	using CompilerState::doubleType;
 	using CompilerState::floatType;
 	using CompilerState::vectorType;
-	using CompilerState::pointerType;
 	using CompilerState::booleanType;
+private:
 
 	map<string, int> _operatorPrecedence;
+	TypeRegistry _typeRegistry;
 
 	class TypeException : public CompilationException
 	{
@@ -99,21 +101,20 @@ private:
 public:
 	Compiler(llvm::LLVMContext& context, llvm::Module* module,
 			llvm::ExecutionEngine* engine):
-		CompilerState(context, module, engine)
+		CompilerState(context, module, engine),
+		_typeRegistry(*this)
 	{
+		types = &_typeRegistry;
+
 		intType = llvm::IntegerType::get(context, 32);
 		xindex = llvm::ConstantInt::get(intType, 0);
 		yindex = llvm::ConstantInt::get(intType, 1);
 		zindex = llvm::ConstantInt::get(intType, 2);
-		realType = S::createRealType(context);
+		realType = types->find("real");
 		doubleType = llvm::Type::getDoubleTy(context);
 		floatType = llvm::Type::getFloatTy(context);
-		vectorType = llvm::VectorType::get(realType, 4);
-		booleanType = llvm::IntegerType::get(context, 1);
-
-		llvm::Type* structType = llvm::StructType::get(
-				realType, realType, realType, NULL);
-		pointerType = llvm::PointerType::get(structType, 0);
+		vectorType = types->find("vector");
+		booleanType = types->find("boolean");
 
 		_operatorPrecedence["and"] = 5;
 		_operatorPrecedence["or"] = 5;
@@ -145,7 +146,7 @@ public:
 			SymbolTable* globals)
 	{
 		vector<VariableSymbol*> arguments;
-		char returntype;
+		Type* returntype;
 
 		L signaturelexer(signaturestream);
 		parse_functionsignature(signaturelexer, arguments, returntype);
@@ -163,7 +164,7 @@ public:
 			VariableSymbol* symbol = arguments[i];
 			symbol->function = functionsymbol;
 			symboltable.add(symbol);
-			llvmtypes.push_back(getInternalType(symbol->type));
+			llvmtypes.push_back(symbol->type->llvm);
 		}
 
 		/* Compile the code to an AST. */
@@ -175,7 +176,7 @@ public:
 		/* Create the LLVM function itself. */
 
 		llvm::FunctionType* ft = llvm::FunctionType::get(
-				getInternalType(returntype), llvmtypes, false);
+				returntype->llvm, llvmtypes, false);
 
 		llvm::Function* f = llvm::Function::Create(ft,
 				llvm::Function::InternalLinkage,
@@ -267,10 +268,10 @@ private:
 		}
 	}
 
-	void parse_typespec(L& lexer, char& type)
+	void parse_typespec(L& lexer, Type*& type)
 	{
 		if (lexer.token() != L::COLON)
-			type = REAL;
+			type = realType;
 		else
 		{
 			expect(lexer, L::COLON);
@@ -279,11 +280,11 @@ private:
 				lexer.error("expected a type name");
 
 			if (lexer.id() == "vector")
-				type = VECTOR;
+				type = vectorType;
 			else if (lexer.id() == "real")
-				type = REAL;
+				type = realType;
 			else if (lexer.id() == "boolean")
-				type = BOOLEAN;
+				type = booleanType;
 			else
 				lexer.error("expected a type name");
 
@@ -292,14 +293,14 @@ private:
 	}
 
 	void parse_functionsignature(L& lexer, vector<VariableSymbol*>& arguments,
-			char& returntype)
+			Type*& returntype)
 	{
 		expect(lexer, L::OPENPAREN);
 
 		while (lexer.token() != L::CLOSEPAREN)
 		{
 			string id;
-			char type = REAL;
+			Type* type = realType;
 
 			parse_identifier(lexer, id);
 
@@ -488,7 +489,7 @@ private:
 		string id;
 		parse_identifier(lexer, id);
 
-		char returntype;
+		Type* returntype;
 		parse_typespec(lexer, returntype);
 
 		if (lexer.token() == L::OPENPAREN)
@@ -496,7 +497,7 @@ private:
 			/* Function definition. */
 
 			vector<VariableSymbol*> arguments;
-			char returntype;
+			Type* returntype;
 			parse_functionsignature(lexer, arguments, returntype);
 
 			FunctionSymbol* f = retain(

@@ -72,12 +72,12 @@ public:
 class VariableSymbol : public ValuedSymbol
 {
 public:
-	const char type;
+	Type* type;
 	FunctionSymbol* function;
 	string hash;
 
 public:
-	VariableSymbol(const string& name, char type):
+	VariableSymbol(const string& name, Type* type):
 		ValuedSymbol(name),
 		type(type)
 	{
@@ -121,7 +121,7 @@ public:
 	virtual void checkParameterCount(CompilerState& state, int calledwith) = 0;
 
 	void typeError(CompilerState& state,
-			int index, llvm::Value* argument, char type)
+			int index, llvm::Value* argument, Type* type)
 	{
 		std::stringstream s;
 		s << "call to parameter " << index << " of function '" << name
@@ -130,9 +130,9 @@ public:
 	}
 
 	virtual void typeCheckParameter(CompilerState& state,
-			int index, llvm::Value* argument, char type)
+			int index, llvm::Value* argument, Type* type)
 	{
-		if (argument->getType() != state.getInternalType(type))
+		if (type && (argument->getType() != type->llvm))
 			typeError(state, index, argument, type);
 	}
 
@@ -144,7 +144,7 @@ class FunctionSymbol : public CallableSymbol
 {
 public:
 	const vector<VariableSymbol*> arguments;
-	const char returntype;
+	const Type* returntype;
 	llvm::Function* function;
 	FunctionSymbol* parent; // parent function in the static scope
 
@@ -157,7 +157,7 @@ private:
 
 public:
 	FunctionSymbol(const string& name, const vector<VariableSymbol*>& arguments,
-			char returntype):
+			Type* returntype):
 		CallableSymbol(name),
 		arguments(arguments),
 		returntype(returntype),
@@ -282,16 +282,16 @@ public:
 
 class ExternalFunctionSymbol : public CallableSymbol
 {
-	string inputtypes;
-	char returntype;
+	vector<string> inputtypes;
+	string returntype;
 	void (*pointer)();
 
 public:
 	using CallableSymbol::typeCheckParameter;
 	using CallableSymbol::typeError;
 
-	ExternalFunctionSymbol(const string& name, const string& inputtypes,
-			char returntype, void (*pointer)()):
+	ExternalFunctionSymbol(const string& name, const vector<string>& inputtypes,
+			string returntype, void (*pointer)()):
 		CallableSymbol(name),
 		inputtypes(inputtypes),
 		returntype(returntype),
@@ -312,16 +312,18 @@ public:
 		vector<llvm::Value*> llvmvalues;
 		vector<llvm::Type*> llvmtypes;
 
-		llvm::Type* internalrtype = state.getInternalType(returntype);
-		llvm::Type* externalrtype = state.getExternalType(returntype);
+		Type* r = state.types->find(returntype);
+		assert(r);
+		llvm::Type* internalrtype = r->llvm;
+		llvm::Type* externalrtype = r->llvmx;
 
 		/* If we're returning a vector, insert the return pointer now.
 		 */
 
-		if (internalrtype == state.vectorType)
+		if (internalrtype == state.vectorType->llvm)
 		{
 			llvm::Value* p = state.builder.CreateAlloca(
-					state.pointerType->getElementType(),
+					state.vectorType->asVector()->llvmstruct,
 					llvm::ConstantInt::get(state.intType, 1));
 
 			llvmvalues.push_back(p);
@@ -335,20 +337,21 @@ public:
 		while (pi != parameters.end())
 		{
 			llvm::Value* value = *pi;
-			char internalctype = inputtypes[i];
+			Type* internalctype = state.types->find(inputtypes[i]);
+			assert(internalctype);
 			typeCheckParameter(state, i+1, value, internalctype);
 
-			llvm::Type* internaltype = state.getInternalType(internalctype);
-			llvm::Type* externaltype = state.getExternalType(internalctype);
+			llvm::Type* internaltype = internalctype->llvm;
+			llvm::Type* externaltype = internalctype->llvmx;
 
 			if ((internaltype == state.doubleType) && (externaltype == state.floatType))
 				value = state.builder.CreateFPTrunc(value, externaltype);
 			else if ((internaltype == state.floatType) && (externaltype == state.doubleType))
 				value = state.builder.CreateFPExt(value, externaltype);
-			else if (internaltype == state.vectorType)
+			else if (internaltype == state.vectorType->llvm)
 			{
 				llvm::Value* p = state.builder.CreateAlloca(
-						state.pointerType->getElementType(),
+						state.vectorType->asVector()->llvmstruct,
 						llvm::ConstantInt::get(state.intType, 1));
 				state.storeVector(value, p);
 				value = p;
@@ -379,7 +382,7 @@ public:
 			retval = state.builder.CreateFPExt(retval, internalrtype);
 		else if ((externalrtype == state.doubleType) && (internalrtype == state.floatType))
 			retval = state.builder.CreateFPTrunc(retval, internalrtype);
-		else if (internalrtype == state.vectorType)
+		else if (internalrtype == state.vectorType->llvm)
 			retval = state.loadVector(llvmvalues[0]);
 		else if (internalrtype != externalrtype)
 			assert(false && "unsupported return type (this is a bug)");
@@ -400,7 +403,7 @@ public:
 	void typeCheckParameter(CompilerState& state,
 				int index, llvm::Value* argument, char type)
 	{
-		if (argument->getType() != state.booleanType)
+		if (argument->getType() != state.booleanType->llvm)
 			typeError(state, index, argument, type);
 	}
 };
@@ -418,7 +421,7 @@ public:
 	void typeCheckParameter(CompilerState& state,
 				int index, llvm::Value* argument, char type)
 	{
-		if (argument->getType() != state.realType)
+		if (argument->getType() != state.realType->llvm)
 			typeError(state, index, argument, type);
 	}
 };
@@ -436,14 +439,14 @@ public:
 	void typeCheckParameter(CompilerState& state,
 				int index, llvm::Value* argument, char type)
 	{
-		if (argument->getType() != state.realType)
+		if (argument->getType() != state.realType->llvm)
 			typeError(state, index, argument, type);
 	}
 
 	llvm::Type* returnType(CompilerState& state,
 			const vector<llvm::Type*>& inputTypes)
 	{
-		return state.booleanType;
+		return state.booleanType->llvm;
 	}
 };
 
@@ -460,7 +463,7 @@ public:
 	void typeCheckParameter(CompilerState& state,
 				int index, llvm::Value* argument, char type)
 	{
-		if (argument->getType() != state.vectorType)
+		if (argument->getType() != state.vectorType->llvm)
 			typeError(state, index, argument, type);
 	}
 };
@@ -533,7 +536,7 @@ public:
 	llvm::Type* returnType(CompilerState& state,
 			const vector<llvm::Type*>& inputTypes)
 	{
-		return state.booleanType;
+		return state.booleanType->llvm;
 	}
 };
 
@@ -550,8 +553,8 @@ public:
 	void typeCheckParameter(CompilerState& state,
 				int index, llvm::Value* argument, char type)
 	{
-		if ((argument->getType() != state.realType) &&
-			(argument->getType() != state.vectorType))
+		if ((argument->getType() != state.realType->llvm) &&
+			(argument->getType() != state.vectorType->llvm))
 			typeError(state, index, argument, type);
 
 		return BitcodeHomogeneousSymbol::typeCheckParameter(state, index,
@@ -578,7 +581,7 @@ public:
 	void typeCheckParameter(CompilerState& state,
 				int index, llvm::Value* argument, char type)
 	{
-		llvm::Type* t = argument->getType();
+		Type* t = state.types->find(argument->getType());
 		switch (index)
 		{
 			case 1:
@@ -602,9 +605,10 @@ public:
 	llvm::Value* convertRHS(CompilerState& state, llvm::Value* lhs,
 			llvm::Value* rhs)
 	{
-		if ((lhs->getType() == state.vectorType) && (rhs->getType() == state.realType))
+		if ((lhs->getType() == state.vectorType->llvm) &&
+			(rhs->getType() == state.realType->llvm))
 		{
-			llvm::Value* v = llvm::UndefValue::get(state.vectorType);
+			llvm::Value* v = llvm::UndefValue::get(state.vectorType->llvm);
 			v = state.builder.CreateInsertElement(v, rhs, state.xindex);
 			v = state.builder.CreateInsertElement(v, rhs, state.yindex);
 			v = state.builder.CreateInsertElement(v, rhs, state.zindex);

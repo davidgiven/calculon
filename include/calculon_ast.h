@@ -33,7 +33,7 @@ struct ASTNode : public Object
 	{
 		llvm::Value* v = codegen(compiler);
 
-		if (v->getType() != compiler.realType)
+		if (v->getType() != compiler.realType->llvm)
 			throw TypeException("type mismatch: expected a real", this);
 		return v;
 	}
@@ -42,7 +42,7 @@ struct ASTNode : public Object
 	{
 		llvm::Value* v = codegen(compiler);
 
-		if (v->getType() != compiler.vectorType)
+		if (v->getType() != compiler.vectorType->llvm)
 			throw TypeException("type mismatch: expected a vector", this);
 		return v;
 	}
@@ -51,7 +51,7 @@ struct ASTNode : public Object
 	{
 		llvm::Value* v = codegen(compiler);
 
-		if (v->getType() != compiler.booleanType)
+		if (v->getType() != compiler.booleanType->llvm)
 			throw TypeException("type mismatch: expected a boolean", this);
 		return v;
 	}
@@ -101,9 +101,9 @@ struct ASTBoolean : public ASTNode
 	llvm::Value* codegen(Compiler& compiler)
 	{
 		if (id == "true")
-			return llvm::ConstantInt::getTrue(compiler.booleanType);
+			return llvm::ConstantInt::getTrue(compiler.booleanType->llvm);
 		else
-			return llvm::ConstantInt::getFalse(compiler.booleanType);
+			return llvm::ConstantInt::getFalse(compiler.booleanType->llvm);
 	}
 };
 
@@ -162,7 +162,7 @@ struct ASTVector : public ASTNode
 
 	llvm::Value* codegen(Compiler& compiler)
 	{
-		llvm::Value* v = llvm::UndefValue::get(compiler.vectorType);
+		llvm::Value* v = llvm::UndefValue::get(compiler.vectorType->llvm);
 
 		llvm::Value* xv = x->codegen_to_real(compiler);
 		llvm::Value* yv = y->codegen_to_real(compiler);
@@ -204,7 +204,7 @@ struct ASTFrame : public ASTNode
 struct ASTDefineVariable : public ASTFrame
 {
 	string id;
-	char type;
+	Type* type;
 	ASTNode* value;
 	ASTNode* body;
 
@@ -214,7 +214,7 @@ struct ASTDefineVariable : public ASTFrame
 	using ASTNode::getFunction;
 
 	ASTDefineVariable(const Position& position,
-			const string& id, char type,
+			const string& id, Type* type,
 			ASTNode* value, ASTNode* body):
 		ASTFrame(position),
 		id(id), value(value), body(body),
@@ -298,7 +298,7 @@ struct ASTFunctionBody : public ASTFrame
 		for (typename vector<VariableSymbol*>::const_iterator i = arguments.begin(),
 				e = arguments.end(); i != e; i++)
 		{
-			llvmtypes.push_back(compiler.getInternalType((*i)->type));
+			llvmtypes.push_back((*i)->type->llvm);
 		}
 
 		/* ...and imported upvalues. */
@@ -314,7 +314,7 @@ struct ASTFunctionBody : public ASTFrame
 			}
 		}
 
-		llvm::Type* returntype = compiler.getInternalType(function->returntype);
+		llvm::Type* returntype = function->returntype->llvm;
 		llvm::FunctionType* ft = llvm::FunctionType::get(
 				returntype, llvmtypes, false);
 
