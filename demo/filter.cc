@@ -15,11 +15,23 @@
 using std::string;
 namespace po = boost::program_options;
 
-typedef Calculon::Instance<Calculon::RealIsDouble> Compiler;
-typedef Compiler::Real Real;
-typedef Compiler::Vector Vector;
+static bool readnumber(double& d)
+{
+	string s;
+	if (!(std::cin >> s))
+		return false;
 
-Compiler::StandardSymbolTable symbols;
+	const char* p = s.c_str();
+	char* endp;
+	d = strtod(p, &endp);
+	if (*endp)
+	{
+		std::cerr << "filter: malformed number in input data";
+		exit(1);
+	}
+
+	return true;
+}
 
 int main(int argc, const char* argv[])
 {
@@ -31,6 +43,8 @@ int main(int argc, const char* argv[])
 	    		"input Calculon script name")
 	    ("script,s", po::value<string>(),
 	    		"literal Calculon script")
+	    ("precision,p", po::value<string>()->default_value("double"),
+	    		"specifies whether to use double or float precision")
    		("dump,d",
    				"dump LLVM bitcode after compilation")
    	;
@@ -76,19 +90,53 @@ int main(int argc, const char* argv[])
 		codestream = new std::stringstream(script);
 	}
 	bool dump = (vm.count("dump") > 0);
+	string precision = vm["precision"].as<string>();
 
-	/* Load the Calculon function to generate the pixels. */
+	if ((precision != "float") && (precision != "double"))
+	{
+		std::cerr << "filter: precision must be 'double' or 'float'\n"
+				  << "(try --help)\n";
+		exit(1);
+	}
 
-	typedef Real TranslateFunction(Real n);
-	Compiler::Program<TranslateFunction> func(symbols, *codestream, "(n)");
-	if (dump)
-		func.dump();
+	if (precision == "double")
+	{
+		typedef Calculon::Instance<Calculon::RealIsDouble> Compiler;
+		typedef Compiler::Real Real;
+		typedef Compiler::Vector Vector;
 
-	std::cout.precision(10);
+		Compiler::StandardSymbolTable symbols;
 
-	Real n;
-	while (std::cin >> n)
-		std::cout << func(n) << "\n";
+		typedef Real TranslateFunction(Real n);
+		Compiler::Program<TranslateFunction> func(symbols, *codestream, "(n)");
+		if (dump)
+			func.dump();
+
+		double d;
+		while (readnumber(d))
+		{
+			std::cout << func(d) << "\n";
+		}
+	}
+	else
+	{
+		typedef Calculon::Instance<Calculon::RealIsFloat> Compiler;
+		typedef Compiler::Real Real;
+		typedef Compiler::Vector Vector;
+
+		Compiler::StandardSymbolTable symbols;
+
+		typedef Real TranslateFunction(Real n);
+		Compiler::Program<TranslateFunction> func(symbols, *codestream, "(n)");
+		if (dump)
+			func.dump();
+
+		double d;
+		while (readnumber(d))
+		{
+			std::cout << func(d) << "\n";
+		}
+	}
 
 	return 0;
 }
