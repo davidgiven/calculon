@@ -469,8 +469,8 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 			case 'R': return "real";
 			case 'V': return "vector";
 			case 'B': return "boolean";
-			case 'D': return " double";
-			case 'F': return " float";
+			case 'D': return "!double";
+			case 'F': return "!float";
 		}
 
 		std::stringstream s;

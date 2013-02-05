@@ -309,7 +309,7 @@ namespace Calculon
 					 * reference vector return value.
 					 */
 
-					externaltypes.push_back(compiler.vectorType->llvm);
+					externaltypes.push_back(compiler.vectorType->llvmx);
 					returntype = llvm::Type::getVoidTy(_context);
 					inputoffset = true;
 				}

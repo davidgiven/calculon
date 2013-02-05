@@ -11,44 +11,128 @@
 #endif
 
 class VectorType;
+class RealType;
 
 class Type : public Object
 {
 public:
+	CompilerState& state;
 	const string name;
 	llvm::Type* llvm; /* LLVM type used inside Calculon code */
 	llvm::Type* llvmx; /* LLVM type used to communicate with C code */
 
-	Type(const string name, CompilerState& compiler):
+	Type(CompilerState& state, const string& name):
+		state(state),
 		name(name),
 		llvm(NULL),
 		llvmx(NULL)
 	{
 	}
 
+	virtual RealType* asReal()
+	{
+		return NULL;
+	}
+
 	virtual VectorType* asVector()
 	{
 		return NULL;
+	}
+
+	virtual llvm::Value* convertToExternal(llvm::Value* value)
+	{
+		return value;
+	}
+
+	virtual llvm::Value* convertToInternal(llvm::Value* value)
+	{
+		return value;
 	}
 };
 
 class RealType : public Type
 {
+	llvm::Type* _llvmdouble;
+	llvm::Type* _llvmfloat;
+
 public:
-	RealType(const string name, CompilerState& compiler):
-		Type(name, compiler)
+	using Type::state;
+	using Type::llvm;
+	using Type::llvmx;
+
+public:
+	RealType(CompilerState& state, const string& name):
+		Type(state, name)
 	{
-		this->llvm = this->llvmx = S::createRealType(compiler.context);
+		llvm = llvmx = S::createRealType(state.context);
+
+		_llvmdouble = llvm::Type::getDoubleTy(state.context);
+		_llvmfloat = llvm::Type::getFloatTy(state.context);
+	}
+
+	RealType* asReal()
+	{
+		return NULL;
+	}
+
+	llvm::Value* convertToInternal(llvm::Value* value)
+	{
+		llvm::Type* t = value->getType();
+		if (t == llvm)
+			return value;
+
+		if (t->getPrimitiveSizeInBits() > llvm->getPrimitiveSizeInBits())
+			return state.builder.CreateFPTrunc(value, llvm);
+		else
+			 return state.builder.CreateFPExt(value, llvm);
+	}
+};
+
+class DoubleType : public RealType
+{
+public:
+	using Type::state;
+	using Type::llvmx;
+
+public:
+	DoubleType(CompilerState& state, const string& name):
+		RealType(state, name)
+	{
+		llvmx = llvm::Type::getDoubleTy(state.context);
+	}
+
+	llvm::Value* convertToExternal(llvm::Value* value)
+	{
+		return state.builder.CreateFPExt(value, llvmx);
+	}
+};
+
+class FloatType : public RealType
+{
+public:
+	using Type::state;
+	using Type::llvmx;
+
+public:
+	FloatType(CompilerState& state, const string& name):
+		RealType(state, name)
+	{
+		llvmx = llvm::Type::getFloatTy(state.context);
+	}
+
+	llvm::Value* convertToExternal(llvm::Value* value)
+	{
+		return state.builder.CreateFPTrunc(value, llvmx);
 	}
 };
 
 class BooleanType : public Type
 {
 public:
-	BooleanType(const string name, CompilerState& compiler):
-		Type(name, compiler)
+	BooleanType(CompilerState& state, const string& name):
+		Type(state, name)
 	{
-		this->llvm = this->llvmx = llvm::IntegerType::get(compiler.context, 1);
+		this->llvm = this->llvmx = llvm::IntegerType::get(state.context, 1);
 	}
 };
 
@@ -59,10 +143,10 @@ public:
 	llvm::Type* llvmpointer;
 
 public:
-	VectorType(const string name, CompilerState& compiler):
-		Type(name, compiler)
+	VectorType(CompilerState& state, const string& name):
+		Type(state, name)
 	{
-		llvm::Type* t = compiler.types->find("real")->llvm;
+		llvm::Type* t = state.types->find("real")->llvm;
 		this->llvm = llvm::VectorType::get(t, 4);
 
 		this->llvmstruct = llvm::StructType::get(t, t, t, NULL);
@@ -89,8 +173,8 @@ private:
 	ByLLVMMap _byllvm;
 
 public:
-	TypeRegistry(CompilerState& compiler):
-		_compiler(compiler)
+	TypeRegistry(CompilerState& state):
+		_compiler(state)
 	{
 	}
 
@@ -108,11 +192,15 @@ public:
 
 		Type* type;
 		if (name == "real")
-			type = _compiler.retain(new RealType(name, _compiler));
+			type = _compiler.retain(new RealType(_compiler, name));
 		else if (name == "boolean")
-			type = _compiler.retain(new BooleanType(name, _compiler));
+			type = _compiler.retain(new BooleanType(_compiler, name));
 		else if (name == "vector")
-			type = _compiler.retain(new VectorType(name, _compiler));
+			type = _compiler.retain(new VectorType(_compiler, name));
+		else if (name == "!float")
+			type = _compiler.retain(new FloatType(_compiler, name));
+		else if (name == "!double")
+			type = _compiler.retain(new DoubleType(_compiler, name));
 		else
 			return NULL;
 
