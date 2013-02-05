@@ -1,11 +1,12 @@
 # Builds the sample Calculon programs. Note that Calculon does not need
 # compilation on its own, it's just a bunch of headers!
 
-CXX = g++
-#CXX = clang++
+#CXX = g++
+CXX = clang++
 
 LLVM = -I$(shell llvm-config-3.2 --includedir) -lLLVM-3.2
-CFLAGS = -O3 -I../include
+#LLVM = $(shell /tmp/llvm/bin/llvm-config --cflags --ldflags --libs)
+CFLAGS = -g -I../include
 
 all: fractal noise filter
 
