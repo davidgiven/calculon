@@ -29,31 +29,29 @@ struct ASTNode : public Object
 
 	virtual llvm::Value* codegen(Compiler& compiler) = 0;
 
-	llvm::Value* codegen_to_real(Compiler& compiler)
+	llvm::Value* codegen_to_type(Compiler& compiler, Type* type)
 	{
 		llvm::Value* v = codegen(compiler);
+		Type* t = compiler.types->find(v->getType());
 
-		if (v->getType() != compiler.realType->llvm)
-			throw TypeException("type mismatch: expected a real", this);
+		if (!t->equals(type))
+		{
+			std::stringstream s;
+			s << "type mismatch: expected a " << type->name << ", but got a "
+			  << t->name;
+			throw TypeException(s.str(), this);
+		}
 		return v;
 	}
 
-	llvm::Value* codegen_to_vector(Compiler& compiler)
+	llvm::Value* codegen_to_real(Compiler& compiler)
 	{
-		llvm::Value* v = codegen(compiler);
-
-		if (v->getType() != compiler.vectorType->llvm)
-			throw TypeException("type mismatch: expected a vector", this);
-		return v;
+		return codegen_to_type(compiler, compiler.realType);
 	}
 
 	llvm::Value* codegen_to_boolean(Compiler& compiler)
 	{
-		llvm::Value* v = codegen(compiler);
-
-		if (v->getType() != compiler.booleanType->llvm)
-			throw TypeException("type mismatch: expected a boolean", this);
-		return v;
+		return codegen_to_type(compiler, compiler.booleanType);
 	}
 
 	virtual void resolveVariables(Compiler& compiler)
@@ -162,7 +160,8 @@ struct ASTVector : public ASTNode
 
 	llvm::Value* codegen(Compiler& compiler)
 	{
-		llvm::Value* v = llvm::UndefValue::get(compiler.vectorType->llvm);
+		Type* type = compiler.types->find("vector");
+		llvm::Value* v = llvm::UndefValue::get(type->llvm);
 
 		llvm::Value* xv = x->codegen_to_real(compiler);
 		llvm::Value* yv = y->codegen_to_real(compiler);
@@ -217,7 +216,7 @@ struct ASTDefineVariable : public ASTFrame
 			const string& id, Type* type,
 			ASTNode* value, ASTNode* body):
 		ASTFrame(position),
-		id(id), value(value), body(body),
+		id(id), type(type), value(value), body(body),
 		_symbol(NULL)
 	{
 		body->parent = this;
@@ -242,6 +241,10 @@ struct ASTDefineVariable : public ASTFrame
 	{
 		llvm::Value* v = value->codegen(compiler);
 		_symbol->value = v;
+
+		if (v->getType() != type->llvm)
+			throw TypeException(
+					"variable not set to the type it's declared to return", this);
 
 		return body->codegen(compiler);
 	}

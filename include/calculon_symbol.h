@@ -123,9 +123,11 @@ public:
 	void typeError(CompilerState& state,
 			int index, llvm::Value* argument, Type* type)
 	{
+		Type* at = state.types->find(argument->getType());
+
 		std::stringstream s;
 		s << "call to parameter " << index << " of function '" << name
-				<< "' with wrong type";
+				<< "' with wrong type; got " << at->name;
 		throw CompilationException(state.position.formatError(s.str()));
 	}
 
@@ -322,7 +324,7 @@ public:
 		if (returntype->asVector())
 		{
 			llvm::Value* p = state.builder.CreateAlloca(
-					state.vectorType->asVector()->llvmstruct,
+					returntype->asVector()->llvmstruct,
 					llvm::ConstantInt::get(state.intType, 1));
 
 			llvmvalues.push_back(p);
@@ -343,9 +345,9 @@ public:
 			if (internalctype->asVector())
 			{
 				llvm::Value* p = state.builder.CreateAlloca(
-						state.vectorType->asVector()->llvmstruct,
+						internalctype->asVector()->llvmstruct,
 						llvm::ConstantInt::get(state.intType, 1));
-				state.storeVector(value, p);
+				internalctype->asVector()->storeToArray(value, p);
 				value = p;
 			}
 			else
@@ -371,7 +373,7 @@ public:
 
 		llvm::Value* retval = state.builder.CreateCall(fptr, llvmvalues);
 		if (returntype->asVector())
-			retval = state.loadVector(llvmvalues[0]);
+			retval = returntype->asVector()->loadFromArray(llvmvalues[0]);
 		else
 			retval = returntype->convertToInternal(retval);
 		return retval;
@@ -389,9 +391,10 @@ public:
 	}
 
 	void typeCheckParameter(CompilerState& state,
-				int index, llvm::Value* argument, char type)
+				int index, llvm::Value* argument, Type* type)
 	{
-		if (argument->getType() != state.booleanType->llvm)
+		Type* at = state.types->find(argument->getType());
+		if (!at->equals(state.booleanType))
 			typeError(state, index, argument, type);
 	}
 };
@@ -407,7 +410,7 @@ public:
 	}
 
 	void typeCheckParameter(CompilerState& state,
-				int index, llvm::Value* argument, char type)
+				int index, llvm::Value* argument, Type* type)
 	{
 		if (argument->getType() != state.realType->llvm)
 			typeError(state, index, argument, type);
@@ -425,7 +428,7 @@ public:
 	}
 
 	void typeCheckParameter(CompilerState& state,
-				int index, llvm::Value* argument, char type)
+				int index, llvm::Value* argument, Type* type)
 	{
 		if (argument->getType() != state.realType->llvm)
 			typeError(state, index, argument, type);
@@ -449,9 +452,9 @@ public:
 	}
 
 	void typeCheckParameter(CompilerState& state,
-				int index, llvm::Value* argument, char type)
+				int index, llvm::Value* argument, Type* type)
 	{
-		if (argument->getType() != state.vectorType->llvm)
+		if (!state.types->find(argument->getType())->asVector())
 			typeError(state, index, argument, type);
 	}
 };
@@ -467,10 +470,10 @@ public:
 	}
 
 	void typeCheckParameter(CompilerState& state,
-				int index, llvm::Value* argument, char type)
+				int index, llvm::Value* argument, Type* type)
 	{
-		if ((argument->getType() != state.realType) &&
-			(argument->getType() != state.vectorType))
+		Type* at = state.types->find(argument->getType());
+		if (!at->equals(state.realType) && !at->asVector())
 			typeError(state, index, argument, type);
 	}
 
@@ -494,7 +497,7 @@ public:
 	}
 
 	void typeCheckParameter(CompilerState& state,
-				int index, llvm::Value* argument, char type)
+				int index, llvm::Value* argument, Type* type)
 	{
 		if (index == 1)
 		{
@@ -539,10 +542,10 @@ public:
 	}
 
 	void typeCheckParameter(CompilerState& state,
-				int index, llvm::Value* argument, char type)
+				int index, llvm::Value* argument, Type* type)
 	{
-		if ((argument->getType() != state.realType->llvm) &&
-			(argument->getType() != state.vectorType->llvm))
+		Type* at = state.types->find(argument->getType());
+		if (!at->equals(state.realType) && !at->asVector())
 			typeError(state, index, argument, type);
 
 		return BitcodeHomogeneousSymbol::typeCheckParameter(state, index,
@@ -567,18 +570,18 @@ public:
 	}
 
 	void typeCheckParameter(CompilerState& state,
-				int index, llvm::Value* argument, char type)
+				int index, llvm::Value* argument, Type* type)
 	{
 		Type* t = state.types->find(argument->getType());
 		switch (index)
 		{
 			case 1:
-				if ((t != state.realType) && (t != state.vectorType))
+				if (!t->equals(state.realType) && !t->asVector())
 					typeError(state, index, argument, type);
 				break;
 
 			default:
-				if (t != state.realType)
+				if (!t->equals(state.realType))
 					typeError(state, index, argument, type);
 				break;
 		}
@@ -593,10 +596,11 @@ public:
 	llvm::Value* convertRHS(CompilerState& state, llvm::Value* lhs,
 			llvm::Value* rhs)
 	{
-		if ((lhs->getType() == state.vectorType->llvm) &&
-			(rhs->getType() == state.realType->llvm))
+		Type* lhst = state.types->find(lhs->getType());
+		Type* rhst = state.types->find(rhs->getType());
+		if (lhst->asVector() && (rhst == state.realType))
 		{
-			llvm::Value* v = llvm::UndefValue::get(state.vectorType->llvm);
+			llvm::Value* v = llvm::UndefValue::get(lhst->llvm);
 			v = state.builder.CreateInsertElement(v, rhs, state.xindex);
 			v = state.builder.CreateInsertElement(v, rhs, state.yindex);
 			v = state.builder.CreateInsertElement(v, rhs, state.zindex);

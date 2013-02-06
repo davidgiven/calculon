@@ -46,23 +46,11 @@ namespace Calculon
 	class SettingsBase
 	{
 	public:
-		enum
-		{
-			VECTOR = 'V',
-			BOOLEAN = 'B',
-			DOUBLE = 'D',
-			FLOAT = 'F'
-		};
 	};
 
 	class RealIsDouble : public SettingsBase
 	{
 	public:
-		enum
-		{
-			REAL = DOUBLE
-		};
-
 		typedef double Real;
 
 	public:
@@ -81,11 +69,6 @@ namespace Calculon
 	class RealIsFloat : public SettingsBase
 	{
 	public:
-		enum
-		{
-			REAL = FLOAT
-		};
-
 		typedef float Real;
 
 	public:
@@ -113,16 +96,6 @@ namespace Calculon
 			Real x, y, z;
 		}
 		Vector;
-
-	private:
-		enum
-		{
-			REAL = S::REAL,
-			DOUBLE = S::DOUBLE,
-			FLOAT = S::FLOAT,
-			VECTOR = S::VECTOR,
-			BOOLEAN = S::BOOLEAN
-		};
 
 	private:
 		class CompilationException : public std::invalid_argument
@@ -167,7 +140,6 @@ namespace Calculon
 			Type* realType;
 			llvm::Type* doubleType;
 			llvm::Type* floatType;
-			Type* vectorType;
 			Type* booleanType;
 
 			CompilerState(llvm::LLVMContext& context, llvm::Module* module,
@@ -178,35 +150,9 @@ namespace Calculon
 				engine(engine),
 				types(NULL),
 				intType(NULL), xindex(NULL), yindex(NULL), zindex(NULL),
-				realType(NULL), doubleType(NULL), floatType(NULL),
-				vectorType(NULL)
+				realType(NULL), doubleType(NULL), floatType(NULL)
 			{
 			}
-
-			void storeVector(llvm::Value* v, llvm::Value* p)
-			{
-				llvm::Value* xv = builder.CreateExtractElement(v, xindex);
-				llvm::Value* yv = builder.CreateExtractElement(v, yindex);
-				llvm::Value* zv = builder.CreateExtractElement(v, zindex);
-
-				builder.CreateStore(xv, builder.CreateStructGEP(p, 0));
-				builder.CreateStore(yv, builder.CreateStructGEP(p, 1));
-				builder.CreateStore(zv, builder.CreateStructGEP(p, 2));
-			}
-
-			llvm::Value* loadVector(llvm::Value* p)
-			{
-				llvm::Value* xv = builder.CreateLoad(builder.CreateStructGEP(p, 0));
-				llvm::Value* yv = builder.CreateLoad(builder.CreateStructGEP(p, 1));
-				llvm::Value* zv = builder.CreateLoad(builder.CreateStructGEP(p, 2));
-
-				llvm::Value* v = llvm::UndefValue::get(vectorType->llvm);
-				v = builder.CreateInsertElement(v, xv, xindex);
-				v = builder.CreateInsertElement(v, yv, yindex);
-				v = builder.CreateInsertElement(v, zv, zindex);
-				return v;
-			}
-
 		};
 
 		#include "calculon_symbol.h"
@@ -303,13 +249,13 @@ namespace Calculon
 
 				llvm::Type* returntype = f->returntype->llvmx;
 				bool inputoffset = false;
-				if (f->returntype == compiler.vectorType)
+				if (f->returntype->asVector())
 				{
 					/* Insert an argument at the front which is the return-by-
 					 * reference vector return value.
 					 */
 
-					externaltypes.push_back(compiler.vectorType->llvmx);
+					externaltypes.push_back(f->returntype->llvmx);
 					returntype = llvm::Type::getVoidTy(_context);
 					inputoffset = true;
 				}
@@ -345,8 +291,8 @@ namespace Calculon
 						VariableSymbol* symbol = arguments[i];
 
 						v->setName(symbol->name);
-						if (symbol->type == compiler.vectorType)
-							v = compiler.loadVector(v);
+						if (symbol->type->asVector())
+							v = symbol->type->asVector()->loadFromArray(v);
 
 						params.push_back(v);
 						i++;
@@ -358,9 +304,9 @@ namespace Calculon
 
 				llvm::Value* retval = f->emitCall(compiler, params);
 
-				if (f->returntype == compiler.vectorType)
+				if (f->returntype->asVector())
 				{
-					compiler.storeVector(retval, _function->arg_begin());
+					f->returntype->asVector()->storeToArray(retval, _function->arg_begin());
 					retval = NULL;
 				}
 

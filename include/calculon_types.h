@@ -29,12 +29,22 @@ public:
 	{
 	}
 
+	bool equals(const Type* other)
+	{
+		return llvm == other->llvm;
+	}
+
 	virtual RealType* asReal()
 	{
 		return NULL;
 	}
 
 	virtual VectorType* asVector()
+	{
+		return NULL;
+	}
+
+	virtual const VectorType* asVector() const
 	{
 		return NULL;
 	}
@@ -84,7 +94,7 @@ public:
 		if (t->getPrimitiveSizeInBits() > llvm->getPrimitiveSizeInBits())
 			return state.builder.CreateFPTrunc(value, llvm);
 		else
-			 return state.builder.CreateFPExt(value, llvm);
+			return state.builder.CreateFPExt(value, llvm);
 	}
 };
 
@@ -142,6 +152,8 @@ public:
 	llvm::Type* llvmstruct;
 	llvm::Type* llvmpointer;
 
+	using Type::state;
+
 public:
 	VectorType(CompilerState& state, const string& name):
 		Type(state, name)
@@ -159,6 +171,48 @@ public:
 	{
 		return this;
 	}
+
+	const VectorType* asVector() const
+	{
+		return this;
+	}
+
+	llvm::Value* convertToExternal(llvm::Value* value)
+	{
+		assert(false && "should not be called on vector");
+		return NULL;
+	}
+
+	llvm::Value* convertToInternal(llvm::Value* value)
+	{
+		assert(false && "should not be called on vector");
+		return NULL;
+	}
+
+	void storeToArray(llvm::Value* value, llvm::Value* pointer) const
+	{
+		llvm::Value* xv = state.builder.CreateExtractElement(value, state.xindex);
+		llvm::Value* yv = state.builder.CreateExtractElement(value, state.yindex);
+		llvm::Value* zv = state.builder.CreateExtractElement(value, state.zindex);
+
+		state.builder.CreateStore(xv, state.builder.CreateStructGEP(pointer, 0));
+		state.builder.CreateStore(yv, state.builder.CreateStructGEP(pointer, 1));
+		state.builder.CreateStore(zv, state.builder.CreateStructGEP(pointer, 2));
+	}
+
+	llvm::Value* loadFromArray(llvm::Value* pointer) const
+	{
+		llvm::Value* xv = state.builder.CreateLoad(state.builder.CreateStructGEP(pointer, 0));
+		llvm::Value* yv = state.builder.CreateLoad(state.builder.CreateStructGEP(pointer, 1));
+		llvm::Value* zv = state.builder.CreateLoad(state.builder.CreateStructGEP(pointer, 2));
+
+		llvm::Value* v = llvm::UndefValue::get(this->llvm);
+		v = state.builder.CreateInsertElement(v, xv, state.xindex);
+		v = state.builder.CreateInsertElement(v, yv, state.yindex);
+		v = state.builder.CreateInsertElement(v, zv, state.zindex);
+		return v;
+	}
+
 };
 
 class TypeRegistry

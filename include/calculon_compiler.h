@@ -34,7 +34,6 @@ public:
 	using CompilerState::realType;
 	using CompilerState::doubleType;
 	using CompilerState::floatType;
-	using CompilerState::vectorType;
 	using CompilerState::booleanType;
 private:
 
@@ -113,7 +112,6 @@ public:
 		realType = types->find("real");
 		doubleType = llvm::Type::getDoubleTy(context);
 		floatType = llvm::Type::getFloatTy(context);
-		vectorType = types->find("vector");
 		booleanType = types->find("boolean");
 
 		_operatorPrecedence["and"] = 5;
@@ -128,17 +126,6 @@ public:
 		_operatorPrecedence["-"] = 20;
 		_operatorPrecedence["*"] = 30;
 		_operatorPrecedence["/"] = 30;
-	}
-
-	char llvmToType(llvm::Type* t)
-	{
-		if (t == realType)
-			return REAL;
-		else if (t == vectorType)
-			return VECTOR;
-		else if (t == booleanType)
-			return BOOLEAN;
-		assert(false);
 	}
 
 public:
@@ -279,13 +266,8 @@ private:
 			if (lexer.token() != L::IDENTIFIER)
 				lexer.error("expected a type name");
 
-			if (lexer.id() == "vector")
-				type = vectorType;
-			else if (lexer.id() == "real")
-				type = realType;
-			else if (lexer.id() == "boolean")
-				type = booleanType;
-			else
+			type = types->find(lexer.id());
+			if (!type)
 				lexer.error("expected a type name");
 
 			lexer.next();

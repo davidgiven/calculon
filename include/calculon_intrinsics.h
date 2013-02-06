@@ -117,7 +117,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 				return state.builder.CreateFCmpOEQ(parameters[0], parameters[1]);
 			else if (type == state.booleanType)
 				return state.builder.CreateICmpEQ(parameters[0], parameters[1]);
-			else if (type == state.vectorType)
+			else if (type->asVector())
 			{
 				llvm::Value* x0 = state.builder.CreateExtractElement(
 						parameters[0], state.xindex);
@@ -156,13 +156,13 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		llvm::Value* emitBitcode(CompilerState& state,
 					const vector<llvm::Value*>& parameters)
 		{
-			llvm::Type* type = parameters[0]->getType();
+			Type* type = state.types->find(parameters[0]->getType());
 
-			if (type == state.realType->llvm)
+			if (type == state.realType)
 				return state.builder.CreateFCmpONE(parameters[0], parameters[1]);
-			else if (type == state.booleanType->llvm)
+			else if (type == state.booleanType)
 				return state.builder.CreateICmpNE(parameters[0], parameters[1]);
-			else if (type == state.vectorType->llvm)
+			else if (type->asVector())
 			{
 				llvm::Value* x0 = state.builder.CreateExtractElement(
 						parameters[0], state.xindex);
@@ -469,9 +469,12 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 			case 'R': return "real";
 			case 'V': return "vector";
 			case 'B': return "boolean";
-			case 'D': return "!double";
-			case 'F': return "!float";
 		}
+
+		if (c == 'D')
+			return S::chooseDoubleOrFloat("real", "!double");
+		if (c == 'F')
+			return S::chooseDoubleOrFloat("!float", "real");
 
 		std::stringstream s;
 		s << "type char '" << c << "' not recognised";
