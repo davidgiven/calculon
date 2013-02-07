@@ -59,7 +59,7 @@ static void process_data(std::istream& codestream, const string& typesignature,
 
 template <typename Settings>
 static void process_data_rows(std::istream& codestream, const string& typesignature,
-		bool dump, unsigned vsize)
+		bool dump, unsigned ivsize, unsigned ovsize)
 {
 	typedef Calculon::Instance<Settings> Compiler;
 	typedef typename Compiler::Real Real;
@@ -73,12 +73,12 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
 	if (dump)
 		func.dump();
 
-	Real in[vsize];
-	Real out[vsize];
+	Real in[ivsize];
+	Real out[ovsize];
 
 	for (;;)
 	{
-		for (unsigned i = 0; i < vsize; i++)
+		for (unsigned i = 0; i < ivsize; i++)
 			if (!readnumber(in[i]))
 			{
 				if (i != 0)
@@ -88,7 +88,7 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
 
 		func(out, in);
 
-		for (unsigned i = 0; i < vsize; i++)
+		for (unsigned i = 0; i < ovsize; i++)
 			std::cout << out[i] << " ";
 		std::cout << "\n";
 	}
@@ -108,8 +108,10 @@ int main(int argc, const char* argv[])
 	    		"specifies whether to use double or float precision")
    		("dump,d",
    				"dump LLVM bitcode after compilation")
-   		("vector,v", po::value<unsigned>(),
+   		("ivector,i", po::value<unsigned>(),
    				"read each row of values as a vector this big")
+   		("ovector,o", po::value<unsigned>(),
+   				"return the result as a vector this big")
    	;
 
 	po::variables_map vm;
@@ -122,6 +124,9 @@ int main(int argc, const char* argv[])
 				     "Calculon script, and writes them to stdout.\n"
 		          << options <<
 		             "\n"
+					 "If you use --ivector, you must also use --ovector (but you're allowed a\n"
+					 "vector with one element).\n"
+					 "\n"
 		             "Try: echo 1 | filter --script 'sin(n)'\n";
 
 		exit(1);
@@ -154,9 +159,21 @@ int main(int argc, const char* argv[])
 	}
 	bool dump = (vm.count("dump") > 0);
 	string precision = vm["precision"].as<string>();
-	unsigned vsize = 0;
-	if (vm.count("vector"))
-		vsize = vm["vector"].as<unsigned>();
+
+	unsigned ivsize = 0;
+	if (vm.count("ivector"))
+		ivsize = vm["ivector"].as<unsigned>();
+
+	unsigned ovsize = 0;
+	if (vm.count("ovector"))
+		ovsize = vm["ovector"].as<unsigned>();
+
+	if ((ivsize != 0) != (ovsize != 0))
+	{
+		std::cerr << "filter: if the input is a vector, the output must be too (and vice versa)\n"
+		          << "(try --help)\n";
+		exit(1);
+	}
 
 	if ((precision != "float") && (precision != "double"))
 	{
@@ -166,16 +183,16 @@ int main(int argc, const char* argv[])
 	}
 
 	string typesignature;
-	if (vsize == 0)
+	if (ivsize == 0)
 		typesignature = "(n: real): real";
 	else
 	{
 		std::stringstream s;
-		s << "(n: vector*" << vsize << "): vector*" << vsize;
+		s << "(n: vector*" << ivsize << "): vector*" << ovsize;
 		typesignature = s.str();
 	}
 
-	if (vsize == 0)
+	if (ivsize == 0)
 	{
 		/* Data is a simple stream of numbers. */
 		if (precision == "double")
@@ -188,10 +205,10 @@ int main(int argc, const char* argv[])
 		/* Data is a stream of rows. */
 		if (precision == "double")
 			process_data_rows<Calculon::RealIsDouble>(*codestream,
-					typesignature, dump, vsize);
+					typesignature, dump, ivsize, ovsize);
 		else
 			process_data_rows<Calculon::RealIsFloat>(*codestream,
-					typesignature, dump, vsize);
+					typesignature, dump, ivsize, ovsize);
 	}
 
 	return 0;
