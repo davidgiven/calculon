@@ -424,7 +424,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 	{
 	public:
 		ZMethod():
-			VectorAccessorMethod(3, 4, 0, "z")
+			VectorAccessorMethod(3, 4, 2, "z")
 		{
 		}
 	}
@@ -434,7 +434,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 	{
 	public:
 		WMethod():
-			VectorAccessorMethod(1, 4, 0, "w")
+			VectorAccessorMethod(1, 4, 3, "w")
 		{
 		}
 	}
