@@ -15,7 +15,8 @@
 using std::string;
 namespace po = boost::program_options;
 
-static bool readnumber(double& d)
+template <typename Real>
+static bool readnumber(Real& d)
 {
 	string s;
 	if (!(std::cin >> s))
@@ -33,6 +34,66 @@ static bool readnumber(double& d)
 	return true;
 }
 
+template <typename Settings>
+static void process_data(std::istream& codestream, const string& typesignature,
+		bool dump)
+{
+	typedef Calculon::Instance<Settings> Compiler;
+	typedef typename Compiler::Real Real;
+	typedef typename Compiler::Vector Vector;
+
+	typename Compiler::StandardSymbolTable symbols;
+
+	typedef Real TranslateFunction(Real n);
+	typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
+			typesignature);
+	if (dump)
+		func.dump();
+
+	Real d;
+	while (readnumber(d))
+	{
+		std::cout << func(d) << "\n";
+	}
+}
+
+template <typename Settings>
+static void process_data_rows(std::istream& codestream, const string& typesignature,
+		bool dump, unsigned vsize)
+{
+	typedef Calculon::Instance<Settings> Compiler;
+	typedef typename Compiler::Real Real;
+	typedef typename Compiler::Vector Vector;
+
+	typename Compiler::StandardSymbolTable symbols;
+
+	typedef void TranslateFunction(Real* out, Real* in);
+	typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
+			typesignature);
+	if (dump)
+		func.dump();
+
+	Real in[vsize];
+	Real out[vsize];
+
+	for (;;)
+	{
+		for (unsigned i = 0; i < vsize; i++)
+			if (!readnumber(in[i]))
+			{
+				if (i != 0)
+					std::cerr << "filter: found partial row, aborting\n";
+				return;
+			}
+
+		func(out, in);
+
+		for (unsigned i = 0; i < vsize; i++)
+			std::cout << out[i] << " ";
+		std::cout << "\n";
+	}
+}
+
 int main(int argc, const char* argv[])
 {
 	po::options_description options("Allowed options");
@@ -47,6 +108,8 @@ int main(int argc, const char* argv[])
 	    		"specifies whether to use double or float precision")
    		("dump,d",
    				"dump LLVM bitcode after compilation")
+   		("vector,v", po::value<unsigned>(),
+   				"read each row of values as a vector this big")
    	;
 
 	po::variables_map vm;
@@ -91,6 +154,9 @@ int main(int argc, const char* argv[])
 	}
 	bool dump = (vm.count("dump") > 0);
 	string precision = vm["precision"].as<string>();
+	unsigned vsize = 0;
+	if (vm.count("vector"))
+		vsize = vm["vector"].as<unsigned>();
 
 	if ((precision != "float") && (precision != "double"))
 	{
@@ -99,43 +165,33 @@ int main(int argc, const char* argv[])
 		exit(1);
 	}
 
-	if (precision == "double")
+	string typesignature;
+	if (vsize == 0)
+		typesignature = "(n: real): real";
+	else
 	{
-		typedef Calculon::Instance<Calculon::RealIsDouble> Compiler;
-		typedef Compiler::Real Real;
-		typedef Compiler::Vector Vector;
+		std::stringstream s;
+		s << "(n: vector*" << vsize << "): vector*" << vsize;
+		typesignature = s.str();
+	}
 
-		Compiler::StandardSymbolTable symbols;
-
-		typedef Real TranslateFunction(Real n);
-		Compiler::Program<TranslateFunction> func(symbols, *codestream, "(n)");
-		if (dump)
-			func.dump();
-
-		double d;
-		while (readnumber(d))
-		{
-			std::cout << func(d) << "\n";
-		}
+	if (vsize == 0)
+	{
+		/* Data is a simple stream of numbers. */
+		if (precision == "double")
+			process_data<Calculon::RealIsDouble>(*codestream, typesignature, dump);
+		else
+			process_data<Calculon::RealIsFloat>(*codestream, typesignature, dump);
 	}
 	else
 	{
-		typedef Calculon::Instance<Calculon::RealIsFloat> Compiler;
-		typedef Compiler::Real Real;
-		typedef Compiler::Vector Vector;
-
-		Compiler::StandardSymbolTable symbols;
-
-		typedef Real TranslateFunction(Real n);
-		Compiler::Program<TranslateFunction> func(symbols, *codestream, "(n)");
-		if (dump)
-			func.dump();
-
-		double d;
-		while (readnumber(d))
-		{
-			std::cout << func(d) << "\n";
-		}
+		/* Data is a stream of rows. */
+		if (precision == "double")
+			process_data_rows<Calculon::RealIsDouble>(*codestream,
+					typesignature, dump, vsize);
+		else
+			process_data_rows<Calculon::RealIsFloat>(*codestream,
+					typesignature, dump, vsize);
 	}
 
 	return 0;
