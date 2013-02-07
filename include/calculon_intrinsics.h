@@ -178,27 +178,35 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 	}
 	_neMethod;
 
-	class AddMethod : public BitcodeRealOrVectorHomogeneousSymbol
+	class AddMethod : public BitcodeRealOrVectorArraySymbol
 	{
+		using BitcodeRealOrVectorArraySymbol::convertRHS;
+
 	public:
 		AddMethod():
-			BitcodeRealOrVectorHomogeneousSymbol("method +", 2)
+			BitcodeRealOrVectorArraySymbol("method +", 2)
 		{
 		}
 
 		llvm::Value* emitBitcode(CompilerState& state,
 					const vector<llvm::Value*>& parameters)
 		{
-			return state.builder.CreateFAdd(parameters[0], parameters[1]);
+			llvm::Value* lhs = parameters[0];
+			llvm::Value* rhs = parameters[1];
+			rhs = convertRHS(state, lhs, rhs);
+
+			return state.builder.CreateFAdd(lhs, rhs);
 		}
 	}
 	_addMethod;
 
-	class SubMethod : public BitcodeRealOrVectorHomogeneousSymbol
+	class SubMethod : public BitcodeRealOrVectorArraySymbol
 	{
+		using BitcodeRealOrVectorArraySymbol::convertRHS;
+
 	public:
 		SubMethod():
-			BitcodeRealOrVectorHomogeneousSymbol("method -", -1)
+			BitcodeRealOrVectorArraySymbol("method -", -1)
 		{
 		}
 
@@ -219,7 +227,13 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 					return state.builder.CreateFNeg(parameters[0]);
 
 				case 2:
-					return state.builder.CreateFSub(parameters[0], parameters[1]);
+				{
+					llvm::Value* lhs = parameters[0];
+					llvm::Value* rhs = parameters[1];
+					rhs = convertRHS(state, lhs, rhs);
+
+					return state.builder.CreateFSub(lhs, rhs);
+				}
 			}
 			assert(false);
 		}

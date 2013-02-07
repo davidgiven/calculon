@@ -13,22 +13,24 @@ The following list describes the major syntactic elements:
   *  <code>0</code> is a real constant.
   *  <code>true</code> or <code>false</code> are boolean constants.
   *  <code>&#91;0, 1, 2]</code> is a vector. The elements must be reals (but
-     need not be constant).
+     need not be constant). You may supply any positive, non-zero number of
+     elements.
   *  <code>sqrt(2)</code> calls a function. Functions may take any number of
      parameters, of any type, and return a single parameter, of any type.
      Functions are not polymorphic.
-  *  <code>V.x, V.y, V.z, V.w</code> extract individual elements from a vector.
-  *  <code>V.magnitude2, V.magnitude</code> compute the square of the length and
-     the length of the vector (in, hopefully, an efficient manner).
-     <code>V.magnitude == sqrt(V.magnitude2)</code>, of course.
+  *  <code>V.x, V.y, V.z, V.w</code> extract the first four elements from a
+     vector. (Obviously assuming the vector has enough elements.)
+  *  <code>V.sum</code> computes the sum of all elements in the vector. (You
+     can calculate the Pythagorean magnitude of a vector with
+     <code>sqrt(V*V)</code>, of course.)
   *  <code>let i = 1; ...expr...</code> defines a variable that becomes
      available when evaluating <code>expr</code>. The new variable is does
      not have an explicit type and is therefore considered to be a real (no
      type inference is done).
-  *  <code>let v: vector = &#91;0, 1, 2]; ...expr...</code> defines a variable
+  *  <code>let v: vector*3 = &#91;0, 1, 2]; ...expr...</code> defines a variable
      that becomes available when evaluating <code>expr</code>. The new
-     variable is explicitly typed.
-  *  <code>let f(v1:vector, v2:vector):vector = v1 + v2; ...expr...</code>
+     variable is explicitly typed. You must specify the size of vectors.
+  *  <code>let f(v1:vector*3, v2:vector*3):vector*3 = v1 + v2; ...expr...</code>
      defines a function. The new function is available both when evaluating
      <code>expr</code> <b>and</b> inside the function body, which allows
      recursion. Note that the scoping rules here are different to when you
@@ -43,9 +45,12 @@ In addition the usual set of infix and prefix operators are available:
   *  For <b>booleans</b>: <code>==</code>, <code>!=</code>,
      <code>and</code>, <code>or</code>, <code>not</code>. <code>and</code>
      and <code>or</code> are short-circuiting.
-  *  For <b>vectors</b>: <code>==</code, <code>!=</code>, <code>+</code>,
-     <code>-</code>, <code>*</code>, <code>/</code>. <code>*</code> and
-     <code>/</code> take a real as their second parameter.
+  *  For <b>vectors</b>: <code>==</code>, <code>!=</code>, <code>+</code>,
+     <code>-</code>, <code>*</code>, <code>/</code>. the
+     operation is applied to each component. If you're doing this, both
+     parameters must have the same sized vector. For non-conditionals, if
+     you pass a real as the second parameter, then that value is applied to all
+     components. 
   *  For <b>reals</b>: all the usual C-like operators. Complain if you find 
      any missing. Also <code>^</code> is available to raise one number to the
      power of another.

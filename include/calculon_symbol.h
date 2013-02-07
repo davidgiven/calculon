@@ -572,6 +572,8 @@ public:
 
 class BitcodeRealOrVectorArraySymbol : public BitcodeSymbol
 {
+	Type* _firsttype;
+
 	using CallableSymbol::typeError;
 
 public:
@@ -587,13 +589,18 @@ public:
 		switch (index)
 		{
 			case 1:
+				_firsttype = t;
 				if (!t->equals(state.realType) && !t->asVector())
 					typeError(state, index, argument, type);
 				break;
 
 			default:
-				if (!t->equals(state.realType))
-					typeError(state, index, argument, type);
+				if (_firsttype->asVector() && t->equals(_firsttype))
+					break;
+				if (t->equals(state.realType))
+					break;
+
+				typeError(state, index, argument, type);
 				break;
 		}
 	}

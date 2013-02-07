@@ -1,0 +1,5 @@
+/// -i 3 -o 1 < 3vector.data
+
+let dot(a: vector*3, b: vector*3) = (a*b).sum;
+
+[dot(n, n)]
