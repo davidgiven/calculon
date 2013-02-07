@@ -5,6 +5,5 @@ let v3: vector*3 = [n+1, n+2, n+3];
 let v4: vector*4 = [n+1, n+2, n+3, n+4];
 let v5: vector*5 = [n+1, n+2, n+3, n+4, n+5];
 let v6: vector*6 = [n+1, n+2, n+3, n+4, n+5, n+6];
-v1.magnitude + v2.magnitude + v3.magnitude + v4.magnitude + v5.magnitude +
-v6.magnitude
+v1.sum + v2.sum + v3.sum + v4.sum + v5.sum + v6.sum
 

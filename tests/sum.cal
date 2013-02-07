@@ -1,0 +1,12 @@
+/// -i 1 -o 8 < 1vector.data
+let x = n.x;
+let v1: vector*1 = [x];
+let v2: vector*2 = [x, x];
+let v3: vector*3 = [x, x, x];
+let v4: vector*4 = [x, x, x, x];
+let v5: vector*5 = [x, x, x, x, x];
+let v6: vector*6 = [x, x, x, x, x, x];
+let v7: vector*7 = [x, x, x, x, x, x, x];
+let v8: vector*8 = [x, x, x, x, x, x, x, x];
+[v1.sum, v2.sum, v3.sum, v4.sum, v5.sum, v6.sum, v7.sum, v8.sum]
+

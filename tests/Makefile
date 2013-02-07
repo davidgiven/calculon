@@ -4,6 +4,7 @@
 FILTER = ../demo/filter
 
 TESTS = \
+	sum \
 	n-vector-types \
 	n-vector-accessors \
 	arithmetic

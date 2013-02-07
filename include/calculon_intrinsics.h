@@ -293,11 +293,11 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 	}
 	_lengthMethod;
 
-	class Magnitude2Method : public BitcodeVectorSymbol
+	class SumMethod : public BitcodeVectorSymbol
 	{
 	public:
-		Magnitude2Method():
-			BitcodeVectorSymbol("method magnitude2")
+		SumMethod():
+			BitcodeVectorSymbol("method sum")
 		{
 		}
 
@@ -307,63 +307,134 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 			return state.realType->llvm;
 		}
 
-		llvm::Value* emitBitcode(CompilerState& state,
-				const vector<llvm::Value*>& parameters)
+	private:
+		llvm::Value* sum_power_of_2(CompilerState& state, llvm::Value* source,
+				int minelement, int maxelement)
 		{
-			VectorType* vtype = state.types->find(parameters[0]->getType())->asVector();
+			int isize = maxelement - minelement;
 
-			llvm::Value* v = parameters[0];
-			v = state.builder.CreateFMul(v, v);
-
-			llvm::Value* sum = llvm::ConstantFP::get(state.realType->llvm, 0.0);
-			for (unsigned i = 0; i < vtype->size; i++)
+			if (isize == 1)
 			{
-				llvm::Value* e = vtype->getElement(v, i);
-				sum = state.builder.CreateFAdd(sum, e);
+				/* Just return the first value. */
+
+				return state.builder.CreateExtractElement(source,
+						llvm::ConstantInt::get(state.intType, minelement+0));
+			}
+			else if (isize == 2)
+			{
+				/* This vector is sufficiently small that we might as well
+				 * just grab the elements and add them as scalars.
+				 */
+
+				llvm::Value* v1 = state.builder.CreateExtractElement(source,
+						llvm::ConstantInt::get(state.intType, minelement+0));
+				llvm::Value* v2 = state.builder.CreateExtractElement(source,
+						llvm::ConstantInt::get(state.intType, minelement+1));
+				return state.builder.CreateFAdd(v1, v2);
+			}
+			else
+			{
+				/* This vector is big enough --- four elements or more ---
+				 * that we're going to use Magic Vector Tricks to sum it
+				 * in log(n) time.
+				 */
+
+				int isize = maxelement - minelement;
+				assert(isize >= 2);
+				int osize = isize / 2;
+
+				/* Split the elements in the source into two vectors of half the
+				 * size.
+				 */
+
+				vector<llvm::Constant*> mask1array;
+				vector<llvm::Constant*> mask2array;
+				for (unsigned i = 0; i < osize; i++)
+				{
+					mask1array.push_back(
+							llvm::ConstantInt::get(state.intType, i + minelement));
+					mask2array.push_back(
+							llvm::ConstantInt::get(state.intType, i + osize + minelement));
+				}
+
+				llvm::Value* mask1 = llvm::ConstantVector::get(mask1array);
+				llvm::Value* mask2 = llvm::ConstantVector::get(mask2array);
+
+				llvm::Value* v1 = state.builder.CreateShuffleVector(source,
+						llvm::UndefValue::get(source->getType()), mask1);
+				llvm::Value* v2 = state.builder.CreateShuffleVector(source,
+						llvm::UndefValue::get(source->getType()), mask2);
+
+				llvm::Value* v = state.builder.CreateFAdd(v1, v2);
+
+				/* Now sum the vector we've just created (recursively). */
+
+				return sum_power_of_2(state, v, 0, osize);
+			}
+		}
+
+		int find_power_of_2(int i)
+		{
+			int j = 1;
+
+			while (i > 1)
+			{
+				i >>= 1;
+				j <<= 1;
 			}
 
-			return sum;
+			return j;
 		}
-	}
-	_magnitude2Method;
 
-	class MagnitudeMethod : public BitcodeVectorSymbol
-	{
+		llvm::Value* sum_non_power_of_2(CompilerState& state, llvm::Value* source,
+				int minelement, int maxelement)
+		{
+			vector<llvm::Value*> results;
+
+			while (minelement != maxelement)
+			{
+				int size = maxelement - minelement;
+				int pow2 = find_power_of_2(size);
+
+				results.push_back(sum_power_of_2(state, source, minelement, minelement+pow2));
+				minelement += pow2;
+			}
+
+			if (results.size() == 1)
+				return results[0];
+
+			if (results.size() == 2)
+				return state.builder.CreateFAdd(results[0], results[1]);
+
+			/* There are many results, so marshal them back into a vector and
+			 * try again.
+			 */
+
+			llvm::Type* desttype = llvm::VectorType::get(state.realType->llvm,
+					results.size());
+			llvm::Value* v = llvm::UndefValue::get(desttype);
+
+			for (unsigned i = 0; i < results.size(); i++)
+			{
+				v = state.builder.CreateInsertElement(v, results[i],
+					llvm::ConstantInt::get(state.intType, i));
+			}
+
+			return sum_non_power_of_2(state, v, 0, results.size());
+		}
+
 	public:
-		MagnitudeMethod():
-			BitcodeVectorSymbol("method magnitude")
-		{
-		}
-
-		llvm::Type* returnType(CompilerState& state,
-				const vector<llvm::Type*>& inputTypes)
-		{
-			return state.realType->llvm;
-		}
-
 		llvm::Value* emitBitcode(CompilerState& state,
 				const vector<llvm::Value*>& parameters)
 		{
-			VectorType* vtype = state.types->find(parameters[0]->getType())->asVector();
+			llvm::Value* value = parameters[0];
+			VectorType* vtype = state.types->find(value->getType())->asVector();
+			int size = vtype->size;
 
-			llvm::Value* v = parameters[0];
-			v = state.builder.CreateFMul(v, v);
-
-			llvm::Value* sum = llvm::ConstantFP::get(state.realType->llvm, 0.0);
-			for (unsigned i = 0; i < vtype->size; i++)
-			{
-				llvm::Value* e = vtype->getElement(v, i);
-				sum = state.builder.CreateFAdd(sum, e);
-			}
-
-			llvm::Constant* f = state.module->getOrInsertFunction(
-					S::chooseDoubleOrFloat("llvm.sqrt.f64", "llvm.sqrt.f32"),
-					state.realType->llvm, NULL);
-
-			return state.builder.CreateCall(f, sum);
+			return sum_non_power_of_2(state, parameters[0], 0, size);
 		}
 	}
-	_magnitudeMethod;
+	_sumMethod;
 
 	class VectorAccessorMethod : public BitcodeVectorSymbol
 	{
@@ -543,8 +614,7 @@ public:
 		add(&_mulMethod);
 		add(&_divMethod);
 		add(&_lengthMethod);
-		add(&_magnitude2Method);
-		add(&_magnitudeMethod);
+		add(&_sumMethod);
 		add(&_xMethod);
 		add(&_yMethod);
 		add(&_zMethod);

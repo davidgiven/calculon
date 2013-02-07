@@ -1,0 +1,11 @@
+0 0 0 0 0 0 0 0 
+-1 -2 -3 -4 -5 -6 -7 -8 
+1 2 3 4 5 6 7 8 
+2 4 6 8 10 12 14 16 
+inf inf inf inf inf inf inf inf 
+-inf -inf -inf -inf -inf -inf -inf -inf 
+nan nan nan nan nan nan nan nan 
+1e+20 2e+20 3e+20 4e+20 5e+20 6e+20 7e+20 8e+20 
+-1e+20 -2e+20 -3e+20 -4e+20 -5e+20 -6e+20 -7e+20 -8e+20 
+1e-20 2e-20 3e-20 4e-20 5e-20 6e-20 7e-20 8e-20 
+-1e-20 -2e-20 -3e-20 -4e-20 -5e-20 -6e-20 -7e-20 -8e-20 
