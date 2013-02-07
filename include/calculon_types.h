@@ -290,7 +290,7 @@ public:
 			return i->second;
 
 		assert(false && "no mapping between LLVM type and Calculon type");
-		throw NULL;
+		throw 0;
 	}
 };
 #endif
