@@ -1,0 +1,6 @@
+/// -i 2 -o 4 < 2vector.data
+
+let a = n.x;
+let b = n.y;
+[a+b, a-b, a*b, a/b]
+

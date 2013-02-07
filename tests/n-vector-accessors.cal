@@ -1,0 +1,3 @@
+/// -i 4 -o 4 < 4vector.data
+[n.x, n.y, n.z, n.w]
+

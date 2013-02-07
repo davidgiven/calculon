@@ -1,0 +1,16 @@
+#!/bin/sh
+# Script for running an individual unit test. Pass in the precision and the
+# test name. The test configuration is read out of the first line of the
+# test file and specifies the input and output type and which data file is
+# to be used.
+
+PRECISION=$1
+TEST=$2
+
+clean=$TEST.clean
+dirty=$TEST.$PRECISION.dirty
+
+cmd=$(head -1 $TEST.cal | sed -e 's!^///!!')
+eval ../demo/filter -f $TEST.cal $cmd > $dirty
+(diff -uN $dirty $clean && rm $dirty ) || (echo "TEST FAILED" && exit 1)
+

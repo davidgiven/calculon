@@ -4,12 +4,9 @@
 FILTER = ../demo/filter
 
 TESTS = \
-	simple \
-	add \
-	sub \
-	mul \
-	div \
-	n-vector-types
+	n-vector-types \
+	n-vector-accessors \
+	arithmetic
 	
 all: $(FILTER) tests
 
@@ -20,8 +17,6 @@ $(FILTER): ../demo/filter.cc $(wildcard ../include/calculon*.h)
 tests:
 	for t in $(TESTS); do \
 		echo $$t; \
-		$(FILTER) -p double -f $$t.cal < testdata > $$t.double.dirty; \
-		(diff -uN $$t.double.dirty $$t.clean && rm $$t.double.dirty) || echo "TEST FAILED"; \
-		$(FILTER) -p float -f $$t.cal < testdata > $$t.float.dirty; \
-		(diff -uN $$t.float.dirty $$t.clean && rm $$t.float.dirty) || echo "TEST FAILED"; \
+		./runtest float $$t; \
+		./runtest double $$t; \
 	done

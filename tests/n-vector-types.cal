@@ -1,2 +1,10 @@
-let v: vector*10 = [n+1, n+2, n+3, n+4, n+5, n+6, n+7, n+8, n+9, n+10];
-v.magnitude
+/// < 1vector.data
+let v1: vector*1 = [n];
+let v2: vector*2 = [n+1, n+2];
+let v3: vector*3 = [n+1, n+2, n+3];
+let v4: vector*4 = [n+1, n+2, n+3, n+4];
+let v5: vector*5 = [n+1, n+2, n+3, n+4, n+5];
+let v6: vector*6 = [n+1, n+2, n+3, n+4, n+5, n+6];
+v1.magnitude + v2.magnitude + v3.magnitude + v4.magnitude + v5.magnitude +
+v6.magnitude
+
