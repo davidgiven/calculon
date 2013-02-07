@@ -1,0 +1,31 @@
+<title>Frequently asked questions</title>
+
+<h3>How do semicolons work?</h3>
+
+Semicolons are syntactically part of the <code>let</code> expression. It works like this:
+
+<verbatim>
+let i = 1 ; expr(i)
+</verbatim>
+
+The <code>;</code> seperates the <i>definition</i> of the variable or
+function from the code which <i>uses</i> the variable or function.
+
+When a Calculon script has multiple let expressions, what's actually happening
+is that all expressions after the first are embedded inside the body of the
+first. These two equivalent code blocks should make things clearer:
+
+<verbatim>
+let a = 1;
+let b = 2;
+let c = 3;
+a + b + c
+</verbatim>
+
+<verbatim>
+let a = 1; (let b = 2; (let c = 3; (a+b+c)))
+</verbatim>
+
+If you prefer, it's possible to think of <code>;</code> as terminating the
+definition part of a let expression.
+
