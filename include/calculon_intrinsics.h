@@ -119,25 +119,19 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 				return state.builder.CreateICmpEQ(parameters[0], parameters[1]);
 			else if (type->asVector())
 			{
-				llvm::Value* x0 = state.builder.CreateExtractElement(
-						parameters[0], state.xindex);
-				llvm::Value* y0 = state.builder.CreateExtractElement(
-						parameters[0], state.yindex);
-				llvm::Value* z0 = state.builder.CreateExtractElement(
-						parameters[0], state.zindex);
-				llvm::Value* x1 = state.builder.CreateExtractElement(
-						parameters[1], state.xindex);
-				llvm::Value* y1 = state.builder.CreateExtractElement(
-						parameters[1], state.yindex);
-				llvm::Value* z1 = state.builder.CreateExtractElement(
-						parameters[1], state.zindex);
+				VectorType* vtype = type->asVector();
 
-				llvm::Value* x = state.builder.CreateFCmpOEQ(x0, x1);
-				llvm::Value* y = state.builder.CreateFCmpOEQ(y0, y1);
-				llvm::Value* z = state.builder.CreateFCmpOEQ(z0, z1);
+				llvm::Value* v = llvm::ConstantInt::getTrue(state.booleanType->llvm);
 
-				llvm::Value* v = state.builder.CreateAnd(x, y);
-				return state.builder.CreateAnd(v, z);
+				for (unsigned i = 0; i < vtype->size; i++)
+				{
+					llvm::Value* x0 = vtype->getElement(parameters[0], i);
+					llvm::Value* x1 = vtype->getElement(parameters[1], i);
+					llvm::Value* x = state.builder.CreateFCmpOEQ(x0, x1);
+					v = state.builder.CreateAnd(v, x);
+				}
+
+				return v;
 			}
 			else
 				assert(false);
@@ -164,25 +158,19 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 				return state.builder.CreateICmpNE(parameters[0], parameters[1]);
 			else if (type->asVector())
 			{
-				llvm::Value* x0 = state.builder.CreateExtractElement(
-						parameters[0], state.xindex);
-				llvm::Value* y0 = state.builder.CreateExtractElement(
-						parameters[0], state.yindex);
-				llvm::Value* z0 = state.builder.CreateExtractElement(
-						parameters[0], state.zindex);
-				llvm::Value* x1 = state.builder.CreateExtractElement(
-						parameters[1], state.xindex);
-				llvm::Value* y1 = state.builder.CreateExtractElement(
-						parameters[1], state.yindex);
-				llvm::Value* z1 = state.builder.CreateExtractElement(
-						parameters[1], state.zindex);
+				VectorType* vtype = type->asVector();
 
-				llvm::Value* x = state.builder.CreateFCmpONE(x0, x1);
-				llvm::Value* y = state.builder.CreateFCmpONE(y0, y1);
-				llvm::Value* z = state.builder.CreateFCmpONE(z0, z1);
+				llvm::Value* v = llvm::ConstantInt::getFalse(state.booleanType->llvm);
 
-				llvm::Value* v = state.builder.CreateAnd(x, y);
-				return state.builder.CreateAnd(v, z);
+				for (unsigned i = 0; i < vtype->size; i++)
+				{
+					llvm::Value* x0 = vtype->getElement(parameters[0], i);
+					llvm::Value* x1 = vtype->getElement(parameters[1], i);
+					llvm::Value* x = state.builder.CreateFCmpONE(x0, x1);
+					v = state.builder.CreateOr(v, x);
+				}
+
+				return v;
 			}
 			else
 				assert(false);
@@ -282,39 +270,6 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 	}
 	_divMethod;
 
-	class Length2Method : public BitcodeVectorSymbol
-	{
-	public:
-		Length2Method():
-			BitcodeVectorSymbol("method length2")
-		{
-		}
-
-		llvm::Type* returnType(CompilerState& state,
-				const vector<llvm::Type*>& inputTypes)
-		{
-			return state.realType->llvm;
-		}
-
-		llvm::Value* emitBitcode(CompilerState& state,
-				const vector<llvm::Value*>& parameters)
-		{
-			llvm::Value* v = parameters[0];
-			v = state.builder.CreateFMul(v, v);
-			llvm::Value* x = state.builder.CreateExtractElement(
-					v, state.xindex);
-			llvm::Value* y = state.builder.CreateExtractElement(
-					v, state.yindex);
-			llvm::Value* z = state.builder.CreateExtractElement(
-					v, state.zindex);
-
-			v = state.builder.CreateFAdd(x, y);
-			v = state.builder.CreateFAdd(v, z);
-			return v;
-		}
-	}
-	_length2Method;
-
 	class LengthMethod : public BitcodeVectorSymbol
 	{
 	public:
@@ -332,32 +287,99 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		llvm::Value* emitBitcode(CompilerState& state,
 				const vector<llvm::Value*>& parameters)
 		{
+			VectorType* vtype = state.types->find(parameters[0]->getType())->asVector();
+			return llvm::ConstantFP::get(state.realType->llvm, vtype->size);
+		}
+	}
+	_lengthMethod;
+
+	class Magnitude2Method : public BitcodeVectorSymbol
+	{
+	public:
+		Magnitude2Method():
+			BitcodeVectorSymbol("method magnitude2")
+		{
+		}
+
+		llvm::Type* returnType(CompilerState& state,
+				const vector<llvm::Type*>& inputTypes)
+		{
+			return state.realType->llvm;
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+				const vector<llvm::Value*>& parameters)
+		{
+			VectorType* vtype = state.types->find(parameters[0]->getType())->asVector();
+
 			llvm::Value* v = parameters[0];
 			v = state.builder.CreateFMul(v, v);
-			llvm::Value* x = state.builder.CreateExtractElement(
-					v, state.xindex);
-			llvm::Value* y = state.builder.CreateExtractElement(
-					v, state.yindex);
-			llvm::Value* z = state.builder.CreateExtractElement(
-					v, state.zindex);
 
-			v = state.builder.CreateFAdd(x, y);
-			v = state.builder.CreateFAdd(v, z);
+			llvm::Value* sum = llvm::ConstantFP::get(state.realType->llvm, 0.0);
+			for (unsigned i = 0; i < vtype->size; i++)
+			{
+				llvm::Value* e = vtype->getElement(v, i);
+				sum = state.builder.CreateFAdd(sum, e);
+			}
+
+			return sum;
+		}
+	}
+	_magnitude2Method;
+
+	class MagnitudeMethod : public BitcodeVectorSymbol
+	{
+	public:
+		MagnitudeMethod():
+			BitcodeVectorSymbol("method magnitude")
+		{
+		}
+
+		llvm::Type* returnType(CompilerState& state,
+				const vector<llvm::Type*>& inputTypes)
+		{
+			return state.realType->llvm;
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+				const vector<llvm::Value*>& parameters)
+		{
+			VectorType* vtype = state.types->find(parameters[0]->getType())->asVector();
+
+			llvm::Value* v = parameters[0];
+			v = state.builder.CreateFMul(v, v);
+
+			llvm::Value* sum = llvm::ConstantFP::get(state.realType->llvm, 0.0);
+			for (unsigned i = 0; i < vtype->size; i++)
+			{
+				llvm::Value* e = vtype->getElement(v, i);
+				sum = state.builder.CreateFAdd(sum, e);
+			}
 
 			llvm::Constant* f = state.module->getOrInsertFunction(
 					S::chooseDoubleOrFloat("llvm.sqrt.f64", "llvm.sqrt.f32"),
 					state.realType->llvm, NULL);
 
-			return state.builder.CreateCall(f, v);
+			return state.builder.CreateCall(f, sum);
 		}
 	}
-	_lengthMethod;
+	_magnitudeMethod;
 
-	class XMethod : public BitcodeVectorSymbol
+	class VectorAccessorMethod : public BitcodeVectorSymbol
 	{
+		unsigned _minelements;
+		unsigned _maxelements;
+		unsigned _element;
+
+		using CallableSymbol::vectorSizeError;
+
 	public:
-		XMethod():
-			BitcodeVectorSymbol("method x")
+		VectorAccessorMethod(unsigned minelements, unsigned maxelements,
+				unsigned element, string name):
+			BitcodeVectorSymbol("method " + name),
+			_minelements(minelements),
+			_maxelements(maxelements),
+			_element(element)
 		{
 		}
 
@@ -370,57 +392,53 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 		llvm::Value* emitBitcode(CompilerState& state,
 				const vector<llvm::Value*>& parameters)
 		{
-			return state.builder.CreateExtractElement(
-					parameters[0], state.xindex);
+			VectorType* t = state.types->find(parameters[0]->getType())->asVector();
+			if ((t->size < _minelements) || (t->size > _maxelements))
+				vectorSizeError(state, t);
+
+			return t->getElement(parameters[0], _element);
+		}
+	};
+
+	class XMethod : public VectorAccessorMethod
+	{
+	public:
+		XMethod():
+			VectorAccessorMethod(1, 4, 0, "x")
+		{
 		}
 	}
 	_xMethod;
 
-	class YMethod : public BitcodeVectorSymbol
+	class YMethod : public VectorAccessorMethod
 	{
 	public:
 		YMethod():
-			BitcodeVectorSymbol("method y")
+			VectorAccessorMethod(2, 4, 1, "y")
 		{
-		}
-
-		llvm::Type* returnType(CompilerState& state,
-				const vector<llvm::Type*>& inputTypes)
-		{
-			return state.realType->llvm;
-		}
-
-		llvm::Value* emitBitcode(CompilerState& state,
-				const vector<llvm::Value*>& parameters)
-		{
-			return state.builder.CreateExtractElement(
-					parameters[0], state.yindex);
 		}
 	}
 	_yMethod;
 
-	class ZMethod : public BitcodeVectorSymbol
+	class ZMethod : public VectorAccessorMethod
 	{
 	public:
 		ZMethod():
-			BitcodeVectorSymbol("method z")
+			VectorAccessorMethod(3, 4, 0, "z")
 		{
-		}
-
-		llvm::Type* returnType(CompilerState& state,
-				const vector<llvm::Type*>& inputTypes)
-		{
-			return state.realType->llvm;
-		}
-
-		llvm::Value* emitBitcode(CompilerState& state,
-				const vector<llvm::Value*>& parameters)
-		{
-			return state.builder.CreateExtractElement(
-					parameters[0], state.zindex);
 		}
 	}
 	_zMethod;
+
+	class WMethod : public VectorAccessorMethod
+	{
+	public:
+		WMethod():
+			VectorAccessorMethod(1, 4, 0, "w")
+		{
+		}
+	}
+	_wMethod;
 
 	class SimpleRealExternal : public IntrinsicFunctionSymbol
 	{
@@ -524,11 +542,13 @@ public:
 		add(&_subMethod);
 		add(&_mulMethod);
 		add(&_divMethod);
-		add(&_length2Method);
 		add(&_lengthMethod);
+		add(&_magnitude2Method);
+		add(&_magnitudeMethod);
 		add(&_xMethod);
 		add(&_yMethod);
 		add(&_zMethod);
+		add(&_wMethod);
 
 		#define REAL1(n) add(&_##n);
 		#define REAL2(n) add(&_##n);

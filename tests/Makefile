@@ -8,7 +8,8 @@ TESTS = \
 	add \
 	sub \
 	mul \
-	div
+	div \
+	n-vector-types
 	
 all: $(FILTER) tests
 

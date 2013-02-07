@@ -67,8 +67,8 @@ Here is a slightly more complicated one:
 
 <verbatim>
 /* On input, A and B are vectors */
-let nA: vector = A / A.length;
-let nB: vector = B / B.length;
+let nA: vector = A / A.magnitude;
+let nB: vector = B / B.magnitude;
 let dot(V1: vector, V2: vector) = V1.x*V2.x + V1.y*V2.y + V1.z*V2.z;
 acos(dot(nA, nB))
 </verbatim>

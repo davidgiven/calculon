@@ -123,6 +123,7 @@ namespace Calculon
 
 		class TypeRegistry;
 		class Type;
+		class VectorType;
 
 		class CompilerState : public Allocator
 		{
@@ -134,9 +135,6 @@ namespace Calculon
 			Position position;
 			TypeRegistry* types;
 			llvm::Type* intType;
-			llvm::Value* xindex;
-			llvm::Value* yindex;
-			llvm::Value* zindex;
 			Type* realType;
 			llvm::Type* doubleType;
 			llvm::Type* floatType;
@@ -149,7 +147,7 @@ namespace Calculon
 				builder(context),
 				engine(engine),
 				types(NULL),
-				intType(NULL), xindex(NULL), yindex(NULL), zindex(NULL),
+				intType(NULL),
 				realType(NULL), doubleType(NULL), floatType(NULL)
 			{
 			}

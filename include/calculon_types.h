@@ -149,19 +149,24 @@ public:
 class VectorType : public Type
 {
 public:
+	unsigned size;
 	llvm::Type* llvmstruct;
 	llvm::Type* llvmpointer;
 
 	using Type::state;
 
 public:
-	VectorType(CompilerState& state, const string& name):
-		Type(state, name)
+	VectorType(CompilerState& state, const string& name, unsigned size):
+		Type(state, name),
+		size(size)
 	{
 		llvm::Type* t = state.types->find("real")->llvm;
-		this->llvm = llvm::VectorType::get(t, 4);
+		this->llvm = llvm::VectorType::get(t, size);
 
-		this->llvmstruct = llvm::StructType::get(t, t, t, NULL);
+		vector<llvm::Type*> elements;
+		elements.insert(elements.begin(), size, t);
+
+		this->llvmstruct = llvm::StructType::get(state.context, elements);
 		this->llvmpointer = llvm::PointerType::get(this->llvmstruct, 0);
 
 		this->llvmx = this->llvmpointer;
@@ -189,28 +194,41 @@ public:
 		return NULL;
 	}
 
+	llvm::Value* getElement(llvm::Value* vector, unsigned index) const
+	{
+		assert(index < size);
+		return state.builder.CreateExtractElement(vector,
+				llvm::ConstantInt::get(state.intType, index));
+	}
+
+	llvm::Value* setElement(llvm::Value* vector, unsigned index, llvm::Value* v) const
+	{
+		assert(index < size);
+		return state.builder.CreateInsertElement(vector, v,
+				llvm::ConstantInt::get(state.intType, index));
+	}
+
 	void storeToArray(llvm::Value* value, llvm::Value* pointer) const
 	{
-		llvm::Value* xv = state.builder.CreateExtractElement(value, state.xindex);
-		llvm::Value* yv = state.builder.CreateExtractElement(value, state.yindex);
-		llvm::Value* zv = state.builder.CreateExtractElement(value, state.zindex);
-
-		state.builder.CreateStore(xv, state.builder.CreateStructGEP(pointer, 0));
-		state.builder.CreateStore(yv, state.builder.CreateStructGEP(pointer, 1));
-		state.builder.CreateStore(zv, state.builder.CreateStructGEP(pointer, 2));
+		for (unsigned i = 0; i < size; i++)
+		{
+			llvm::Value* v = getElement(value, i);
+			state.builder.CreateStore(v, state.builder.CreateStructGEP(pointer, i));
+		}
 	}
 
 	llvm::Value* loadFromArray(llvm::Value* pointer) const
 	{
-		llvm::Value* xv = state.builder.CreateLoad(state.builder.CreateStructGEP(pointer, 0));
-		llvm::Value* yv = state.builder.CreateLoad(state.builder.CreateStructGEP(pointer, 1));
-		llvm::Value* zv = state.builder.CreateLoad(state.builder.CreateStructGEP(pointer, 2));
+		llvm::Value* value = llvm::UndefValue::get(this->llvm);
 
-		llvm::Value* v = llvm::UndefValue::get(this->llvm);
-		v = state.builder.CreateInsertElement(v, xv, state.xindex);
-		v = state.builder.CreateInsertElement(v, yv, state.yindex);
-		v = state.builder.CreateInsertElement(v, zv, state.zindex);
-		return v;
+		for (unsigned i = 0; i < size; i++)
+		{
+			llvm::Value* v = state.builder.CreateLoad(
+					state.builder.CreateStructGEP(pointer, i));
+			value = setElement(value, i, v);
+		}
+
+		return value;
 	}
 
 };
@@ -249,12 +267,15 @@ public:
 			type = _compiler.retain(new RealType(_compiler, name));
 		else if (name == "boolean")
 			type = _compiler.retain(new BooleanType(_compiler, name));
-		else if (name == "vector")
-			type = _compiler.retain(new VectorType(_compiler, name));
 		else if (name == "!float")
 			type = _compiler.retain(new FloatType(_compiler, name));
 		else if (name == "!double")
 			type = _compiler.retain(new DoubleType(_compiler, name));
+		else if (name == "vector")
+			type = _compiler.retain(new VectorType(_compiler, name, 3));
+		else if (name.substr(0, 7) == "vector*")
+			type = _compiler.retain(new VectorType(_compiler, name,
+					atoi(name.c_str() + 7)));
 		else
 			return NULL;
 

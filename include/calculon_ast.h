@@ -81,8 +81,7 @@ struct ASTConstant : public ASTNode
 
 	llvm::Value* codegen(Compiler& compiler)
 	{
-		return llvm::ConstantFP::get(compiler.context,
-				llvm::APFloat(value));
+		return llvm::ConstantFP::get(compiler.realType->llvm, value);
 	}
 };
 
@@ -147,38 +146,39 @@ struct ASTVariable : public ASTNode
 
 struct ASTVector : public ASTNode
 {
-	ASTNode* x;
-	ASTNode* y;
-	ASTNode* z;
+	vector<ASTNode*> elements;
+	string typenm;
 
-	ASTVector(const Position& position, ASTNode* x, ASTNode* y, ASTNode* z):
+	ASTVector(const Position& position, const vector<ASTNode*>& elements):
 		ASTNode(position),
-		x(x), y(y), z(z)
+		elements(elements)
 	{
-		x->parent = y->parent = z->parent = this;
+		for (unsigned i = 0; i < elements.size(); i++)
+			elements[i]->parent = this;
+
+		std::stringstream s;
+		s << "vector*" << elements.size();
+		typenm = s.str();
 	}
 
 	llvm::Value* codegen(Compiler& compiler)
 	{
-		Type* type = compiler.types->find("vector");
+		VectorType* type = compiler.types->find(typenm)->asVector();
 		llvm::Value* v = llvm::UndefValue::get(type->llvm);
 
-		llvm::Value* xv = x->codegen_to_real(compiler);
-		llvm::Value* yv = y->codegen_to_real(compiler);
-		llvm::Value* zv = z->codegen_to_real(compiler);
-
-		v = compiler.builder.CreateInsertElement(v, xv, compiler.xindex);
-		v = compiler.builder.CreateInsertElement(v, yv, compiler.yindex);
-		v = compiler.builder.CreateInsertElement(v, zv, compiler.zindex);
+		for (unsigned i = 0; i < elements.size(); i++)
+		{
+			llvm::Value* e = elements[i]->codegen_to_real(compiler);
+			v = type->setElement(v, i, e);
+		}
 
 		return v;
 	}
 
 	void resolveVariables(Compiler& compiler)
 	{
-		x->resolveVariables(compiler);
-		y->resolveVariables(compiler);
-		z->resolveVariables(compiler);
+		for (unsigned i = 0; i < elements.size(); i++)
+			elements[i]->resolveVariables(compiler);
 	}
 };
 
@@ -243,8 +243,15 @@ struct ASTDefineVariable : public ASTFrame
 		_symbol->value = v;
 
 		if (v->getType() != type->llvm)
-			throw TypeException(
-					"variable not set to the type it's declared to return", this);
+		{
+			std::stringstream s;
+			s << "variable is declared to return a "
+			  << type->name
+			  << " but has been set to a "
+			  << compiler.types->find(v->getType())->name;
+
+			throw TypeException(s.str(), this);
+		}
 
 		return body->codegen(compiler);
 	}
@@ -381,8 +388,15 @@ struct ASTFunctionBody : public ASTFrame
 		llvm::Value* v = body->codegen(compiler);
 		compiler.builder.CreateRet(v);
 		if (v->getType() != returntype)
-			throw TypeException(
-					"function does not return the type it's declared to return", this);
+		{
+			std::stringstream s;
+			s << "function is declared to return a "
+			  << compiler.types->find(returntype)->name
+			  << " but actually returns a "
+			  << compiler.types->find(v->getType())->name;
+
+			throw TypeException(s.str(), this);
+		}
 
 		compiler.builder.SetInsertPoint(bb, bi);
 

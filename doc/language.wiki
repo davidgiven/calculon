@@ -17,10 +17,10 @@ The following list describes the major syntactic elements:
   *  <code>sqrt(2)</code> calls a function. Functions may take any number of
      parameters, of any type, and return a single parameter, of any type.
      Functions are not polymorphic.
-  *  <code>V.x, V.y, V.z</code> extract individual elements from a vector.
-  *  <code>V.length2, V.length</code> compute the square of the length and
+  *  <code>V.x, V.y, V.z, V.w</code> extract individual elements from a vector.
+  *  <code>V.magnitude2, V.magnitude</code> compute the square of the length and
      the length of the vector (in, hopefully, an efficient manner).
-     <code>V.length == sqrt(V.length2)</code>, of course.
+     <code>V.magnitude == sqrt(V.magnitude2)</code>, of course.
   *  <code>let i = 1; ...expr...</code> defines a variable that becomes
      available when evaluating <code>expr</code>. The new variable is does
      not have an explicit type and is therefore considered to be a real (no

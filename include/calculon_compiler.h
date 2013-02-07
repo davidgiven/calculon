@@ -27,9 +27,6 @@ private:
 	using CompilerState::retain;
 	using CompilerState::types;
 	using CompilerState::intType;
-	using CompilerState::xindex;
-	using CompilerState::yindex;
-	using CompilerState::zindex;
 public:
 	using CompilerState::realType;
 	using CompilerState::doubleType;
@@ -106,9 +103,6 @@ public:
 		types = &_typeRegistry;
 
 		intType = llvm::IntegerType::get(context, 32);
-		xindex = llvm::ConstantInt::get(intType, 0);
-		yindex = llvm::ConstantInt::get(intType, 1);
-		zindex = llvm::ConstantInt::get(intType, 2);
 		realType = types->find("real");
 		doubleType = llvm::Type::getDoubleTy(context);
 		floatType = llvm::Type::getFloatTy(context);
@@ -266,11 +260,30 @@ private:
 			if (lexer.token() != L::IDENTIFIER)
 				lexer.error("expected a type name");
 
-			type = types->find(lexer.id());
+			std::stringstream typenm;
+			typenm << lexer.id();
+			lexer.next();
+
+			if ((lexer.token() == L::OPERATOR) && (lexer.id() == "*"))
+			{
+				typenm << "*";
+				lexer.next();
+
+				if (lexer.token() != L::NUMBER)
+					lexer.error("invalid n-vector type specifier");
+				int size = (int)lexer.real();
+				if ((Real)size != lexer.real())
+					lexer.error("n-vector size must be an integer");
+				if (size <= 0)
+					lexer.error("n-vector size must be greater than 0");
+
+				typenm << size;
+				lexer.next();
+			}
+
+			type = types->find(typenm.str());
 			if (!type)
 				lexer.error("expected a type name");
-
-			lexer.next();
 		}
 	}
 
@@ -525,14 +538,22 @@ private:
 		Position position = lexer.position();
 
 		expect(lexer, L::OPENBLOCK);
-		ASTNode* x = parse_expression(lexer);
-		expect(lexer, L::COMMA);
-		ASTNode* y = parse_expression(lexer);
-		expect(lexer, L::COMMA);
-		ASTNode* z = parse_expression(lexer);
+
+		vector<ASTNode*> elements;
+		do
+		{
+			ASTNode* e = parse_expression(lexer);
+			elements.push_back(e);
+
+			if (lexer.token() != L::COMMA)
+				break;
+			expect(lexer, L::COMMA);
+		}
+		while (true);
+
 		expect(lexer, L::CLOSEBLOCK);
 
-		return retain(new ASTVector(position, x, y, z));
+		return retain(new ASTVector(position, elements));
 	}
 
 	ASTToplevel* parse_toplevel(L& lexer, FunctionSymbol* symbol,

@@ -131,6 +131,17 @@ public:
 		throw CompilationException(state.position.formatError(s.str()));
 	}
 
+	void vectorSizeError(CompilerState& state, VectorType* vectortype)
+	{
+		std::stringstream s;
+		s << "this doesn't make sense for a vector with "
+		  << vectortype->size << " element";
+		if (vectortype->size != 1)
+			s << "s";
+
+		throw CompilationException(state.position.formatError(s.str()));
+	}
+
 	virtual void typeCheckParameter(CompilerState& state,
 			int index, llvm::Value* argument, Type* type)
 	{
@@ -600,10 +611,12 @@ public:
 		Type* rhst = state.types->find(rhs->getType());
 		if (lhst->asVector() && (rhst == state.realType))
 		{
+			VectorType* lhsvt = lhst->asVector();
 			llvm::Value* v = llvm::UndefValue::get(lhst->llvm);
-			v = state.builder.CreateInsertElement(v, rhs, state.xindex);
-			v = state.builder.CreateInsertElement(v, rhs, state.yindex);
-			v = state.builder.CreateInsertElement(v, rhs, state.zindex);
+
+			for (unsigned i = 0; i < lhsvt->size; i++)
+				v = lhsvt->setElement(v, i, rhs);
+
 			rhs = v;
 		}
 
