@@ -15,7 +15,8 @@
 #include <cassert>
 #include <cctype>
 #include <memory>
-#include <boost/thread/tss.hpp>
+#include <boost/aligned_storage.hpp>
+#include <boost/static_assert.hpp>
 
 #define __STDC_LIMIT_MACROS
 #define __STDC_CONSTANT_MACROS
@@ -43,12 +44,14 @@ namespace Calculon
 	using std::set;
 	using std::auto_ptr;
 
-	class SettingsBase
+	namespace Impl
 	{
-	public:
-	};
+		class SettingsBase
+		{
+		};
+	}
 
-	class RealIsDouble : public SettingsBase
+	class RealIsDouble : public Impl::SettingsBase
 	{
 	public:
 		typedef double Real;
@@ -66,7 +69,7 @@ namespace Calculon
 		}
 	};
 
-	class RealIsFloat : public SettingsBase
+	class RealIsFloat : public Impl::SettingsBase
 	{
 	public:
 		typedef float Real;
@@ -86,16 +89,96 @@ namespace Calculon
 
 	#include "calculon_allocator.h"
 
+	namespace Impl
+	{
+		template <class S, int size>
+		struct Vector
+		{
+			BOOST_STATIC_ASSERT(size > 0);
+			BOOST_STATIC_ASSERT((size >= 4) || (size == 1));
+
+			enum
+			{
+				LENGTH = size * sizeof(typename S::Real),
+				ALIGN = (LENGTH < 16) ? LENGTH : 16
+			};
+
+			union
+			{
+				typename S::Real m[size];
+				typename boost::aligned_storage<LENGTH, ALIGN>::type _align;
+			};
+		};
+
+		template <class S>
+		struct Vector<S, 2>
+		{
+			enum
+			{
+				LENGTH = 2 * sizeof(typename S::Real),
+				ALIGN = (LENGTH < 16) ? LENGTH : 16
+			};
+
+			union
+			{
+				typename S::Real m[2];
+				struct
+				{
+					typename S::Real x, y;
+					typename boost::aligned_storage<LENGTH, ALIGN>::type _align;
+				};
+			};
+		};
+
+		template <class S>
+		struct Vector<S, 3>
+		{
+			enum
+			{
+				LENGTH = 4 * sizeof(typename S::Real),
+				ALIGN = LENGTH
+			};
+
+			union
+			{
+				typename S::Real m[3];
+				struct
+				{
+					typename S::Real x, y, z;
+					typename boost::aligned_storage<LENGTH, ALIGN>::type _align;
+				};
+			};
+		};
+
+		template <class S>
+		struct Vector<S, 4>
+		{
+			enum
+			{
+				LENGTH = 4 * sizeof(typename S::Real),
+				ALIGN = (LENGTH < 16) ? LENGTH : 16
+			};
+
+			union
+			{
+				typename S::Real m[4];
+				struct
+				{
+					typename S::Real x, y, z, w;
+					typename boost::aligned_storage<LENGTH, ALIGN>::type _align;
+				};
+			};
+		};
+	}
+
 	template <class S>
 	class Instance
 	{
 	public:
 		typedef typename S::Real Real;
-		typedef struct
+		template <int size> struct Vector : public Impl::Vector<S, size>
 		{
-			Real x, y, z;
-		}
-		Vector;
+		};
 
 	private:
 		class CompilationException : public std::invalid_argument

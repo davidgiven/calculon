@@ -13,6 +13,7 @@
 #include "calculon.h"
 
 using std::string;
+using std::vector;
 namespace po = boost::program_options;
 
 template <typename Real>
@@ -40,7 +41,6 @@ static void process_data(std::istream& codestream, const string& typesignature,
 {
 	typedef Calculon::Instance<Settings> Compiler;
 	typedef typename Compiler::Real Real;
-	typedef typename Compiler::Vector Vector;
 
 	typename Compiler::StandardSymbolTable symbols;
 
@@ -63,7 +63,7 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
 {
 	typedef Calculon::Instance<Settings> Compiler;
 	typedef typename Compiler::Real Real;
-	typedef typename Compiler::Vector Vector;
+	typedef typename Compiler::template Vector<4> Vector4;
 
 	typename Compiler::StandardSymbolTable symbols;
 
@@ -73,8 +73,17 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
 	if (dump)
 		func.dump();
 
-	Real in[ivsize];
-	Real out[ovsize];
+	/* Important! Vectors must be correctly aligned. This is harder than it
+	 * looks. We allocate an vector of Compiler::Vector<4> to force the
+	 * alignment to be correct, and then take the address of the first
+	 * element to get raw Reals.
+	 */
+
+	vector<Vector4> istorage((ivsize+3) / 4);
+	Real* in = &istorage[0].m[0];
+
+	vector<Vector4> ostorage((ovsize+3) / 4);
+	Real* out = &ostorage[0].m[0];
 
 	for (;;)
 	{

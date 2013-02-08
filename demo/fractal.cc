@@ -16,7 +16,6 @@ namespace po = boost::program_options;
 
 typedef Calculon::Instance<Calculon::RealIsDouble> Compiler;
 typedef Compiler::Real Real;
-typedef Compiler::Vector Vector;
 
 Compiler::StandardSymbolTable symbols;
 

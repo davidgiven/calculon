@@ -17,12 +17,12 @@ namespace po = boost::program_options;
 
 typedef Calculon::Instance<Calculon::RealIsFloat> Compiler;
 typedef Compiler::Real Real;
-typedef Compiler::Vector Vector;
+typedef Compiler::Vector<3> Vector3;
 
 Compiler::StandardSymbolTable symbols;
 
 extern "C"
-double perlin(Vector* v)
+double perlin(Vector3* v)
 {
 	static noise::module::Perlin generator;
 	return generator.GetValue(v->x, v->y, v->z);
@@ -68,7 +68,7 @@ int main(int argc, const char* argv[])
 
 	/* Load the Calculon function to generate the pixels. */
 
-	typedef void FractalFunction(Vector* result, Real r, Real i);
+	typedef void FractalFunction(Vector3* result, Real r, Real i);
 	std::ifstream code(scriptfilename.c_str());
 	Compiler::Program<FractalFunction> func(symbols, code, "(x,y):vector");
 	if (dump)
@@ -86,7 +86,7 @@ int main(int argc, const char* argv[])
 			Real xx = -1 + x * (2/(Real)width);
 			Real yy = -1 + y * (2/(Real)height);
 
-			Vector result;
+			Vector3 result;
 			func(&result, xx, yy);
 
 			outputfile << (int)(result.x * 65535.0) << " "
