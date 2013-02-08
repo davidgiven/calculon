@@ -212,9 +212,12 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 
 		void checkParameterCount(CompilerState& state, int calledwith)
 		{
+			/* Accept one or two parameters. */
 			if ((calledwith == 1) || (calledwith == 2))
 				return;
-			BitcodeRealOrVectorHomogeneousSymbol::checkParameterCount(
+
+			/* Otherwise, let the superclass produce the error. */
+			BitcodeRealOrVectorArraySymbol::checkParameterCount(
 					state, calledwith);
 		}
 
