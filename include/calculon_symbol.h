@@ -335,7 +335,7 @@ public:
 		if (returntype->asVector())
 		{
 			llvm::Value* p = state.builder.CreateAlloca(
-					returntype->asVector()->llvmstruct,
+					returntype->asVector()->llvm,
 					llvm::ConstantInt::get(state.intType, 1));
 
 			llvmvalues.push_back(p);
@@ -356,7 +356,7 @@ public:
 			if (internalctype->asVector())
 			{
 				llvm::Value* p = state.builder.CreateAlloca(
-						internalctype->asVector()->llvmstruct,
+						internalctype->asVector()->llvm,
 						llvm::ConstantInt::get(state.intType, 1));
 				internalctype->asVector()->storeToArray(value, p);
 				value = p;

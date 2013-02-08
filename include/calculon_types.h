@@ -150,7 +150,6 @@ class VectorType : public Type
 {
 public:
 	unsigned size;
-	llvm::Type* llvmstruct;
 	llvm::Type* llvmpointer;
 
 	using Type::state;
@@ -166,8 +165,7 @@ public:
 		vector<llvm::Type*> elements;
 		elements.insert(elements.begin(), size, t);
 
-		this->llvmstruct = llvm::StructType::get(state.context, elements);
-		this->llvmpointer = llvm::PointerType::get(this->llvmstruct, 0);
+		this->llvmpointer = llvm::PointerType::get(this->llvm, 0);
 
 		this->llvmx = this->llvmpointer;
 	}
@@ -210,25 +208,12 @@ public:
 
 	void storeToArray(llvm::Value* value, llvm::Value* pointer) const
 	{
-		for (unsigned i = 0; i < size; i++)
-		{
-			llvm::Value* v = getElement(value, i);
-			state.builder.CreateStore(v, state.builder.CreateStructGEP(pointer, i));
-		}
+		state.builder.CreateStore(value, pointer);
 	}
 
 	llvm::Value* loadFromArray(llvm::Value* pointer) const
 	{
-		llvm::Value* value = llvm::UndefValue::get(this->llvm);
-
-		for (unsigned i = 0; i < size; i++)
-		{
-			llvm::Value* v = state.builder.CreateLoad(
-					state.builder.CreateStructGEP(pointer, i));
-			value = setElement(value, i, v);
-		}
-
-		return value;
+		return state.builder.CreateLoad(pointer);
 	}
 
 };
