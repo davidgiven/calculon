@@ -56,6 +56,15 @@ Calculon's home is at http://cowlark.com/calculon.
 Alternatively, you will find a copy of the website (in easier-to-read more-or-
 less plain text format) in the doc directory.
 
+Calculon comes with a test suite. To run this, do:
+
+  make -C test
+  
+It uses the filter command from the demo directory to actually run the tests
+(and will build it automatically). If you make any changes, please run this.
+If you find a bug, please write a test that demonstrates it; it will make my
+life much easier.
+
 
 
 THE AUTHOR
