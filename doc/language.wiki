@@ -52,8 +52,7 @@ In addition the usual set of infix and prefix operators are available:
      you pass a real as the second parameter, then that value is applied to all
      components. 
   *  For <b>reals</b>: all the usual C-like operators. Complain if you find 
-     any missing. Also <code>^</code> is available to raise one number to the
-     power of another.
+     any missing.
 
 The order of precedence, from highest to lowest, is: unary operators,
 multiplication and division, addition and subtraction, comparisons, boolean
