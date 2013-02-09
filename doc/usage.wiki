@@ -14,7 +14,7 @@ Here is an annotated example.
 /* Create the type instance, and pull some useful types out of it */
 typedef Calculon::Instance<Calculon::RealIsDouble> Compiler;
 typedef Compiler::Real Real;
-typedef Compiler::Vector Vector;
+typedef Compiler::Vector<3> Vector3;
 
 /* Create the symbol table */
 Compiler::StandardSymbolTable symbols;
@@ -58,33 +58,51 @@ the future.
 
 You can use both at the same time, if you wish.
 
+<h3>Vectors</h3>
+
+The <code>Compiler::Vector&lt;&gt;</code> template refers to a vector with
+the specified number of parameters. It ensures that the correct alignment is
+used (which is <i>very important</i>, or else your script will run very badly
+or produce the wrong results).
+
+It has an <code>m&#91;]</code> member which provides access to the members of
+the vector. Dereference them at your will. Sorry, they can't be initialised via
+initialisation lists: you have to assign to their members. (If anyone knows
+how to force C++ to allow this, please get in touch.)
+
+Vectors which are 1, 2, 3 or 4 elements long may also be derefenced via
+<code>x</code>, <code>y</code>, <code>z</code> and <code>w</code>, as
+appropriate.
+
 <h3>Calling conventions</h3>
 
 Alas, the mapping between C++ parameters and Calculon parameters is not
 quite obvious.
 
 Calculon reals are available as <code>Compiler::Real</code>, and Calculon
-vectors as <code>Compiler::Vector</code>. Reals are passed in the obvious
-way, as in the example above. However, vectors are passed by pointer. If the
-Calculon script returns a vector, then an extra initial parameter is added
-which points to where the return parameter should be written.
+vectors as the appropriate kind of <code>Compiler::Vector</code>. Reals are
+passed in the obvious way, as in the example above. However, vectors are
+passed by pointer. If the Calculon script returns a vector, then an extra
+initial parameter is added which points to where the return parameter should
+be written.
 
 For example:
 
 <verbatim>
-/* f1(x: real, y: real, v: vector): real */
-typedef Real f1(Real x, Real y, Vector* v);
+/* f1(x: real, y: real, v: vector*3): real */
+typedef Real f1(Real x, Real y, Compiler::Vector<3>* v);
 
-/* f2(x: real, y: real, v: vector): vector */
-typedef void f2(Vector* result, Real x, Real y, Vector* v);
+/* f2(x: real, y: real, v: vector*3): vector*2 */
+typedef void f2(Compiler::Vector<2>* result, Real x, Real y, Compiler::Vector<3>* v);
 </verbatim>
 
 To call such a function, create some Vector objects somewhere and pass
 their pointers in. The stack will do fine.
 
 <verbatim>
-Vector result;
-Vector v = {0, 1, 2};
+Compiler::Vector<2> result;
+Compiler::Vector<3> v;
+v.x = 0; v.y = 1; v.z = 2;
 f2(&result, 7, 8, &v);
 </verbatim>
 
@@ -96,7 +114,7 @@ compilation process. Symbol tables are not thread safe!)
 
 <verbatim>
 extern "C"
-double perlin(Vector* v)
+double perlin(Compiler::Vector<3>* v)
 {
 	return ...
 }
@@ -114,7 +132,7 @@ characters have the following meaning:
 
 <dl>
 <dt><code>V</code></dt>
-<dd>a vector</dd>
+<dd>a vector*3</dd>
 <dt><code>F</code></dt>
 <dd>a single-precision float (if Calculon is configured to use
 double-precision floats, the value will be converted automatically)</dd>
