@@ -14,12 +14,19 @@ The following list describes the major syntactic elements:
   *  <code>true</code> or <code>false</code> are boolean constants.
   *  <code>&#91;0, 1, 2]</code> is a vector. The elements must be reals (but
      need not be constant). You may supply any positive, non-zero number of
-     elements.
+     elements. The size of a vector is part of its type; vectors of different
+     sizes are not compatible.
   *  <code>sqrt(2)</code> calls a function. Functions may take any number of
      parameters, of any type, and return a single parameter, of any type.
      Functions are not polymorphic.
   *  <code>V.x, V.y, V.z, V.w</code> extract the first four elements from a
      vector. (Obviously assuming the vector has enough elements.)
+     <code>V&#91;n]</code> extracts the <code>n</code>th element of a vector.
+     If the vector is square --- e.g. four, nine or sixteen elements --- you
+     may also use <code>V&#91;x, y]</code> to extract a given element by
+     coordinate. The elements are stored in row-major order. Out of bound
+     indices wrap.
+  *  <code>V.length</code> returns the number of elements in a vector. 
   *  <code>V.sum</code> computes the sum of all elements in the vector. (You
      can calculate the Pythagorean magnitude of a vector with
      <code>sqrt(V*V)</code>, of course.)
