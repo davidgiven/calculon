@@ -406,6 +406,24 @@ private:
 
 				vector<ASTNode*> parameters;
 				parameters.push_back(value);
+
+				if (lexer.token() == L::OPENPAREN)
+				{
+					lexer.next();
+
+					while (lexer.token() != L::CLOSEPAREN)
+					{
+						ASTNode* e = parse_expression(lexer);
+						parameters.push_back(e);
+
+						if (lexer.token() != L::COMMA)
+							break;
+						expect(lexer, L::COMMA);
+					}
+
+					expect(lexer, L::CLOSEPAREN);
+				}
+
 				return retain(new ASTFunctionCall(position, "method "+id,
 						parameters));
 			}
