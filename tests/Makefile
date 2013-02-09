@@ -4,6 +4,7 @@
 FILTER = ../demo/filter
 
 TESTS = \
+	vector-squarebrackets \
 	vector-arithmetic \
 	dot \
 	sum \

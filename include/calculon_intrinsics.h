@@ -528,6 +528,105 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 	}
 	_wMethod;
 
+	class VectorSquareBracketMethod : public BitcodeSymbol
+	{
+		using CallableSymbol::vectorSizeError;
+		using CallableSymbol::typeError;
+
+	public:
+		VectorSquareBracketMethod():
+			BitcodeSymbol("method []", -1)
+		{
+		}
+
+		void checkParameterCount(CompilerState& state, int calledwith)
+		{
+			/* Accept one or two parameters. */
+			if ((calledwith == 2) || (calledwith == 3))
+				return;
+
+			/* Otherwise, let the superclass produce the error. */
+			BitcodeSymbol::checkParameterCount(state, calledwith);
+		}
+
+		void typeCheckParameter(CompilerState& state,
+					int index, llvm::Value* argument, Type* type)
+		{
+			Type* t = state.types->find(argument->getType());
+
+			switch (index)
+			{
+				case 1:
+					if (!t->asVector())
+						typeError(state, index, argument, type);
+					break;
+
+				default:
+					if (!t->equals(state.realType))
+						typeError(state, index, argument, type);
+					break;
+			}
+		}
+
+		llvm::Type* returnType(CompilerState& state,
+				const vector<llvm::Type*>& inputTypes)
+		{
+			return state.realType->llvm;
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+				const vector<llvm::Value*>& parameters)
+		{
+			llvm::Value* vector = parameters[0];
+			VectorType* t = state.types->find(vector->getType())->asVector();
+
+			llvm::Value* element;
+			switch (parameters.size())
+			{
+				case 2:
+				{
+					element = state.builder.CreateFPToUI(parameters[1],
+							state.intType);
+					break;
+				}
+
+				case 3:
+				{
+					/* Square vectors */
+
+					int root = (int)sqrt(t->size);
+					if ((root*root) != t->size)
+					{
+						std::stringstream s;
+						s << "you can only use a .mXY operator on square vectors, and this one has "
+						  << t->size << " element";
+						if (t->size != 1)
+							s << "s";
+
+						throw CompilationException(state.position.formatError(s.str()));
+					}
+
+					llvm::Value* x = state.builder.CreateFPToUI(parameters[1],
+							state.intType);
+					llvm::Value* y = state.builder.CreateFPToUI(parameters[2],
+							state.intType);
+					element = state.builder.CreateMul(y,
+							llvm::ConstantInt::get(state.intType, root));
+					element = state.builder.CreateAdd(element, x);
+					break;
+				}
+
+				default:
+					assert(false);
+			}
+
+			element = state.builder.CreateURem(element,
+					llvm::ConstantInt::get(state.intType, t->size));
+			return state.builder.CreateExtractElement(vector, element);
+		}
+	}
+	_vectorSquareBracketMethod;
+
 	class SimpleRealExternal : public IntrinsicFunctionSymbol
 	{
 		using Symbol::name;
@@ -636,6 +735,7 @@ public:
 		add(&_yMethod);
 		add(&_zMethod);
 		add(&_wMethod);
+		add(&_vectorSquareBracketMethod);
 
 		#define REAL1(n) add(&_##n);
 		#define REAL2(n) add(&_##n);

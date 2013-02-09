@@ -394,19 +394,46 @@ private:
 	{
 		ASTNode* value = parse_leaf(lexer);
 
-		if (lexer.token() == L::DOT)
+		switch (lexer.token())
 		{
-			Position position = lexer.position();
-			expect(lexer, L::DOT);
+			case L::DOT:
+			{
+				Position position = lexer.position();
+				expect(lexer, L::DOT);
 
-			string id;
-			parse_identifier(lexer, id);
+				string id;
+				parse_identifier(lexer, id);
 
-			vector<ASTNode*> parameters;
-			parameters.push_back(value);
-			return retain(new ASTFunctionCall(position, "method "+id,
-					parameters));
-		}
+				vector<ASTNode*> parameters;
+				parameters.push_back(value);
+				return retain(new ASTFunctionCall(position, "method "+id,
+						parameters));
+			}
+
+			case L::OPENBLOCK:
+			{
+				Position position = lexer.position();
+				expect(lexer, L::OPENBLOCK);
+
+				vector<ASTNode*> parameters;
+				parameters.push_back(value);
+
+				do
+				{
+					ASTNode* e = parse_expression(lexer);
+					parameters.push_back(e);
+
+					if (lexer.token() != L::COMMA)
+						break;
+					expect(lexer, L::COMMA);
+				}
+				while (true);
+
+				expect(lexer, L::CLOSEBLOCK);
+				return retain(new ASTFunctionCall(position, "method []",
+						parameters));
+			}
+		};
 
 		return value;
 	}
