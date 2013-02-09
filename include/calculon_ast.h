@@ -242,6 +242,15 @@ struct ASTDefineVariable : public ASTFrame
 		llvm::Value* v = value->codegen(compiler);
 		_symbol->value = v;
 
+		if (!type)
+		{
+			/* Now we have a value for this variable, we can find out what
+			 * type it is.
+			 */
+
+			_symbol->type = type = compiler.types->find(v->getType());
+		}
+
 		if (v->getType() != type->llvm)
 		{
 			std::stringstream s;

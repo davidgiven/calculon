@@ -252,7 +252,7 @@ private:
 	void parse_typespec(L& lexer, Type*& type)
 	{
 		if (lexer.token() != L::COLON)
-			type = realType;
+			type = NULL;
 		else
 		{
 			expect(lexer, L::COLON);
@@ -295,12 +295,12 @@ private:
 		while (lexer.token() != L::CLOSEPAREN)
 		{
 			string id;
-			Type* type = realType;
-
 			parse_identifier(lexer, id);
 
-			if (lexer.token() == L::COLON)
-				parse_typespec(lexer, type);
+			Type* type;
+			parse_typespec(lexer, type);
+			if (!type)
+				type = realType;
 
 			VariableSymbol* symbol = retain(new VariableSymbol(id, type));
 			arguments.push_back(symbol);
@@ -309,6 +309,8 @@ private:
 
 		expect(lexer, L::CLOSEPAREN);
 		parse_typespec(lexer, returntype);
+		if (!returntype)
+			returntype = realType;
 	}
 
 	ASTNode* parse_variable_or_function_call(L& lexer)
@@ -534,6 +536,11 @@ private:
 
 		if (lexer.token() == L::OPENPAREN)
 		{
+			/* Return type for functions defaults to Real. */
+
+			if (!returntype)
+				returntype = realType;
+
 			/* Function definition. */
 
 			vector<VariableSymbol*> arguments;
