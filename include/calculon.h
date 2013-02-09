@@ -95,7 +95,7 @@ namespace Calculon
 		struct Vector
 		{
 			BOOST_STATIC_ASSERT(size > 0);
-			BOOST_STATIC_ASSERT((size >= 4) || (size == 1));
+			BOOST_STATIC_ASSERT(size >= 4);
 
 			enum
 			{
@@ -107,6 +107,26 @@ namespace Calculon
 			{
 				typename S::Real m[size];
 				typename boost::aligned_storage<LENGTH, ALIGN>::type _align;
+			};
+		};
+
+		template <class S>
+		struct Vector<S, 1>
+		{
+			enum
+			{
+				LENGTH = 1 * sizeof(typename S::Real),
+				ALIGN = (LENGTH < 16) ? LENGTH : 16
+			};
+
+			union
+			{
+				typename S::Real m[1];
+				struct
+				{
+					typename S::Real x;
+					typename boost::aligned_storage<LENGTH, ALIGN>::type _align;
+				};
 			};
 		};
 
