@@ -22,7 +22,7 @@
 #define __STDC_CONSTANT_MACROS
 #include "llvm/DerivedTypes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/ExecutionEngine/JIT.h"
+#include "llvm/ExecutionEngine/MCJIT.h"
 #include "llvm/IRBuilder.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
@@ -315,9 +315,12 @@ namespace Calculon
 				_module = new llvm::Module("Calculon Function", _context);
 
 				llvm::InitializeNativeTarget();
+				llvm::InitializeNativeTargetAsmPrinter();
+				llvm::InitializeNativeTargetAsmParser();
+				LLVMLinkInMCJIT();
 
 				llvm::TargetOptions options;
-//				options.PrintMachineCode = true;
+				options.PrintMachineCode = true;
 				options.UnsafeFPMath = true;
 				options.RealignStack = true;
 				options.LessPreciseFPMADOption = true;
@@ -329,6 +332,7 @@ namespace Calculon
 					.setErrorStr(&s)
 					.setOptLevel(llvm::CodeGenOpt::Aggressive)
 					.setTargetOptions(options)
+					.setUseMCJIT(true)
 					.create();
 				if (!_engine)
 					throw CompilationException(s);
