@@ -140,7 +140,7 @@ struct ASTVariable : public ASTNode
 
 	llvm::Value* codegen(Compiler& compiler)
 	{
-		return symbol->value;
+		return symbol->emitValue(compiler);
 	}
 };
 

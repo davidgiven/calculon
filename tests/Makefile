@@ -4,6 +4,7 @@
 FILTER = ../demo/filter
 
 TESTS = \
+	global-variables \
 	vector-squarebrackets \
 	vector-arithmetic \
 	dot \

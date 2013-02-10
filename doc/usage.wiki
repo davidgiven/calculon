@@ -149,6 +149,23 @@ function once with a set of parameters, it can call it again with the same
 parameters and get the same result. Be careful. (And don't forget that
 <code>rand()</code> has side effects.)
 
+<h3>Registering values</h3>
+
+You may also register real global variables in the symbol table. This is
+useful for simple constants that won't change between runs of the Calculon
+script (such as: size of the output image, position of various objects in 3D
+space, etc).
+
+<verbatim>
+Compiler::StandardSymbolTable symbols;
+symbols.add("fortytwo", 42);
+symbols.add("pi", M_PI);
+</verbatim>
+
+These values are compiled as literal into the output machine code, which means
+they are fast. However, one the script has been compiled, they cannot be
+changed. Use input parameters for these.
+
 <h3>Dependencies</h3>
 
 The Calculon library uses the STL and iostreams. It does use some Boost, but

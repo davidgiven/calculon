@@ -14,7 +14,19 @@
 
 using std::string;
 using std::vector;
+using std::map;
 namespace po = boost::program_options;
+
+template <typename Real>
+static bool parsenumber(const string& s, Real& d)
+{
+	const char* p = s.c_str();
+	char* endp;
+	d = strtod(p, &endp);
+	if (*endp)
+		return false;
+	return true;
+}
 
 template <typename Real>
 static bool readnumber(Real& d)
@@ -23,10 +35,7 @@ static bool readnumber(Real& d)
 	if (!(std::cin >> s))
 		return false;
 
-	const char* p = s.c_str();
-	char* endp;
-	d = strtod(p, &endp);
-	if (*endp)
+	if (!parsenumber(s, d))
 	{
 		std::cerr << "filter: malformed number in input data";
 		exit(1);
@@ -37,12 +46,18 @@ static bool readnumber(Real& d)
 
 template <typename Settings>
 static void process_data(std::istream& codestream, const string& typesignature,
-		bool dump)
+		bool dump, const map<string, double>& variables)
 {
 	typedef Calculon::Instance<Settings> Compiler;
 	typedef typename Compiler::Real Real;
 
 	typename Compiler::StandardSymbolTable symbols;
+
+	for (map<string, double>::const_iterator i = variables.begin(),
+			e = variables.end(); i != e; i++)
+	{
+		symbols.add(i->first, i->second);
+	}
 
 	typedef Real TranslateFunction(Real n);
 	typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
@@ -59,13 +74,20 @@ static void process_data(std::istream& codestream, const string& typesignature,
 
 template <typename Settings>
 static void process_data_rows(std::istream& codestream, const string& typesignature,
-		bool dump, unsigned ivsize, unsigned ovsize)
+		bool dump, unsigned ivsize, unsigned ovsize,
+		const map<string, double>& variables)
 {
 	typedef Calculon::Instance<Settings> Compiler;
 	typedef typename Compiler::Real Real;
 	typedef typename Compiler::template Vector<4> Vector4;
 
 	typename Compiler::StandardSymbolTable symbols;
+
+	for (map<string, double>::const_iterator i = variables.begin(),
+			e = variables.end(); i != e; i++)
+	{
+		symbols.add(i->first, i->second);
+	}
 
 	typedef void TranslateFunction(Real* out, Real* in);
 	typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
@@ -117,6 +139,8 @@ int main(int argc, const char* argv[])
 	    		"specifies whether to use double or float precision")
    		("dump,d",
    				"dump LLVM bitcode after compilation")
+   		("define,D", po::value< vector<string> >(),
+   				"defines a global variable")
    		("ivector,i", po::value<unsigned>(),
    				"read each row of values as a vector this big")
    		("ovector,o", po::value<unsigned>(),
@@ -153,6 +177,35 @@ int main(int argc, const char* argv[])
 		std::cerr << "filter: you can't specify *both* a file and a literal script!\n"
 			     "(try --help)\n";
 		exit(1);
+	}
+
+	map<string, double> variables;
+	if (vm.count("define") > 0)
+	{
+		const vector<string>& variableparams = vm["define"].as< vector<string> >();
+		for (vector<string>::const_iterator i = variableparams.begin(),
+				e = variableparams.end(); i != e; i++)
+		{
+			const string& definition = *i;
+			int equals = definition.find('=');
+			if (equals == string::npos)
+			{
+				std::cerr << "filter: malformed variable definition (use -D NAME=REAL)\n"
+						  << "(try --help)\n";
+				exit(1);
+			}
+
+			double value;
+			if (!parsenumber(definition.substr(equals+1), value))
+			{
+				std::cerr << "filter: malformed real\n"
+						  << "(try --help)\n";
+				exit(1);
+			}
+
+			string name = definition.substr(0, equals);
+			variables[name] = value;
+		}
 	}
 
 	std::istream* codestream;
@@ -205,19 +258,21 @@ int main(int argc, const char* argv[])
 	{
 		/* Data is a simple stream of numbers. */
 		if (precision == "double")
-			process_data<Calculon::RealIsDouble>(*codestream, typesignature, dump);
+			process_data<Calculon::RealIsDouble>(*codestream, typesignature,
+					dump, variables);
 		else
-			process_data<Calculon::RealIsFloat>(*codestream, typesignature, dump);
+			process_data<Calculon::RealIsFloat>(*codestream, typesignature,
+					dump, variables);
 	}
 	else
 	{
 		/* Data is a stream of rows. */
 		if (precision == "double")
 			process_data_rows<Calculon::RealIsDouble>(*codestream,
-					typesignature, dump, ivsize, ovsize);
+					typesignature, dump, ivsize, ovsize, variables);
 		else
 			process_data_rows<Calculon::RealIsFloat>(*codestream,
-					typesignature, dump, ivsize, ovsize);
+					typesignature, dump, ivsize, ovsize, variables);
 	}
 
 	return 0;

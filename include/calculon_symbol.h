@@ -13,6 +13,7 @@
 class CallableSymbol;
 class ValuedSymbol;
 class VariableSymbol;
+class VariableSymbol;
 class FunctionSymbol;
 
 class Symbol : public Object
@@ -35,6 +36,11 @@ public:
 		return NULL;
 	}
 
+	virtual VariableSymbol* isVariable()
+	{
+		return NULL;
+	}
+
 	virtual CallableSymbol* isCallable()
 	{
 		return NULL;
@@ -49,12 +55,8 @@ public:
 class ValuedSymbol : public Symbol
 {
 public:
-	llvm::Value* value;
-
-public:
 	ValuedSymbol(const string& name):
-		Symbol(name),
-		value(NULL)
+		Symbol(name)
 	{
 	}
 
@@ -63,15 +65,30 @@ public:
 		return this;
 	}
 
-	virtual VariableSymbol* isVariable()
+	virtual llvm::Value* emitValue(CompilerState& state) = 0;
+};
+
+class ExternalRealConstantSymbol : public ValuedSymbol
+{
+public:
+	double value;
+
+	ExternalRealConstantSymbol(const string& name, double value):
+		ValuedSymbol(name),
+		value(value)
 	{
-		return NULL;
+	}
+
+	llvm::Value* emitValue(CompilerState& state)
+	{
+		return llvm::ConstantFP::get(state.realType->llvm, value);
 	}
 };
 
 class VariableSymbol : public ValuedSymbol
 {
 public:
+	llvm::Value* value;
 	Type* type;
 	FunctionSymbol* function;
 	string hash;
@@ -89,6 +106,11 @@ public:
 	VariableSymbol* isVariable()
 	{
 		return this;
+	}
+
+	llvm::Value* emitValue(CompilerState& state)
+	{
+		return value;
 	}
 };
 

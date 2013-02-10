@@ -710,6 +710,8 @@ private:
 	}
 
 public:
+	/* Registers an external function. */
+
 	void add(const string& name, const string& signature, void (*ptr)())
 	{
 		std::stringstream stream(signature);
@@ -738,6 +740,13 @@ public:
 		string returntype = parse_typespec(lexer);
 
 		add(retain(new ExternalFunctionSymbol(name, inputtypes, returntype, ptr)));
+	}
+
+	/* Registers a global variable. */
+
+	void add(const string& name, double value)
+	{
+		add(retain(new ExternalRealConstantSymbol(name, value)));
 	}
 
 public:
