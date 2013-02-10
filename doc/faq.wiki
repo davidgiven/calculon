@@ -92,3 +92,10 @@ thread_specific_ptr</a></code> class is probably the way to go here.)
 
 Alternatively, if you don't care about threading, you could just use a global
 variable.
+
+<h2 class='comments-title'>Comments on this page</h2>
+<table class='comments' border='0'><tr>
+<td id='commentator-viewer'></td>
+<td id='commentator-poster'></td>
+</tr></table>
+

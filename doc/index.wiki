@@ -21,7 +21,7 @@ limited type inference, faster code, and better everything everywhere.
 <a href='../../../tarball/calculon-0.2.tar.gz?uuid=release-0.2'>
   <img class='link-img' height='22' width='20' alt='[BIN]' src='//cowlark.com/binary.png'>
 </a>
-<a href='../../../tarball/calculon-0.2.tar.gz?uuid=release-0.2'>calculon-0.1.tar.gz</a>
+<a href='../../../tarball/calculon-0.2.tar.gz?uuid=release-0.2'>calculon-0.2.tar.gz</a>
 <p>Version 0.2 is available for download.</p>
 </blockquote>
 
