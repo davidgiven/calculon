@@ -48,8 +48,6 @@ private:
 	Position _tokenPos;
 	Position _pos;
 
-	typedef typename S::Real Real;
-
 public:
 	Lexer(std::istream& data):
 		_data(data),
