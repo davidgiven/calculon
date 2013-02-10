@@ -1,0 +1,16 @@
+Version 0.2
+===========
+
+* n-vector support.
+* method calls can have parameters.
+* type inference on variable declarations.
+* global variables in the symbol table.
+* better registration of external functions.
+* Add pi, Inf, NaN constants.
+* Added test suite.
+* Many bugfixes and improves to demo code.
+
+Version 0.1
+===========
+
+Initial version.
