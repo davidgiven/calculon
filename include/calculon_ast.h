@@ -185,10 +185,10 @@ struct ASTVector : public ASTNode
 struct ASTVectorSplat : public ASTNode
 {
 	ASTNode* value;
-	int size;
+	unsigned size;
 	string typenm;
 
-	ASTVectorSplat(const Position& position, ASTNode* value, int size):
+	ASTVectorSplat(const Position& position, ASTNode* value, unsigned size):
 		ASTNode(position),
 		value(value),
 		size(size)

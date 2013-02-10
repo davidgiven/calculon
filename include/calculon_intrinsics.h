@@ -366,7 +366,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 
 				vector<llvm::Constant*> mask1array;
 				vector<llvm::Constant*> mask2array;
-				for (unsigned i = 0; i < osize; i++)
+				for (int i = 0; i < osize; i++)
 				{
 					mask1array.push_back(
 							llvm::ConstantInt::get(state.intType, i + minelement));
@@ -594,7 +594,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 				{
 					/* Square vectors */
 
-					int root = (int)sqrt(t->size);
+					unsigned root = (unsigned)sqrt(t->size);
 					if ((root*root) != t->size)
 					{
 						std::stringstream s;
