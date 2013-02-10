@@ -300,6 +300,7 @@ class ExternalFunctionSymbol : public CallableSymbol
 	void (*pointer)();
 
 public:
+	using Symbol::name;
 	using CallableSymbol::typeCheckParameter;
 	using CallableSymbol::typeError;
 
@@ -317,6 +318,23 @@ public:
 		CallableSymbol::checkParameterCount(state, calledwith, inputtypenames.size());
 	}
 
+private:
+	Type* lookup_type(CompilerState& state, const string& n)
+	{
+		Type* t = state.types->find(n);
+		if (!t)
+		{
+			std::stringstream s;
+			s << "type '" << n
+			  << "' unknown in declaration of external function '"
+			  << name << "'";
+
+			throw CompilationException(s.str());
+		}
+		return t;
+	}
+
+public:
 	llvm::Value* emitCall(CompilerState& state,
 			const vector<llvm::Value*>& parameters)
 	{
@@ -325,8 +343,7 @@ public:
 		vector<llvm::Value*> llvmvalues;
 		vector<llvm::Type*> llvmtypes;
 
-		Type* returntype = state.types->find(returntypename);
-		assert(returntype);
+		Type* returntype = lookup_type(state, returntypename);
 		llvm::Type* externalreturntype = returntype->llvmx;
 
 		/* If we're returning a vector, insert the return pointer now.
@@ -349,8 +366,7 @@ public:
 		while (pi != parameters.end())
 		{
 			llvm::Value* value = *pi;
-			Type* internalctype = state.types->find(inputtypenames[i]);
-			assert(internalctype);
+			Type* internalctype = lookup_type(state, inputtypenames[i]);
 			typeCheckParameter(state, i+1, value, internalctype);
 
 			if (internalctype->asVector())

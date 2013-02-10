@@ -120,29 +120,25 @@ double perlin(Compiler::Vector<3>* v)
 }
 
 Compiler::StandardSymbolTable symbols;
-symbols.add("perlin", "D=V", perlin);
+symbols.add("perlin", "(vector*3): double", perlin);
 </verbatim>
 
-The first parameter specifies the name; the second parameter describes the
-function; the third parameter is the function to call.
+The first parameter specifies the name; the second parameter gives the type
+signature of the function; the third parameter is the function to call. The
+function does not need to be <code>extern "C"</code> but it's a good idea to
+avoid edge cases.
 
-The first character of the parameter description describes the return type,
-and the characters after the equals sign describes the parameters. The
-characters have the following meaning:
+The type signature uses a similar syntax to Calculon type signatures, but
+without function names. <code>real</code> must be explicitly specified.
+<code>float</code> and <code>double</code> are valid here, and cause Calculon
+to automatically convert between the representation of <code>real</code> that
+it is using internally to your platform's float or double types. (If you
+specify <code>real</code>, ensure that your external function uses
+<code>Compiler::Real</code> as its parameter type.)
 
-<dl>
-<dt><code>V</code></dt>
-<dd>a vector*3</dd>
-<dt><code>F</code></dt>
-<dd>a single-precision float (if Calculon is configured to use
-double-precision floats, the value will be converted automatically)</dd>
-<dt><code>D</code></dt>
-<dd>a double-precision float (if Calculon is configured to use
-single-precision floats, the value will be converted automatically)</dd>
-<dt><code>R</code></dt>
-<dd>a real (no conversion is done; the function must use
-<code>Compiler::Real</code> as the type of this parameter)</dd>
-</dl>
+<b>If you make a mistake here, really bad things happen.</b> There is no way
+for Calculon to detect whether the function signature is correct or not, and
+it just trusts you. If you get it wrong, you may get garbage data or crashes.
 
 Vectors are passed in and out in the same way as for Calculon scripts.
 
@@ -155,10 +151,11 @@ parameters and get the same result. Be careful. (And don't forget that
 
 <h3>Dependencies</h3>
 
-The Calculon library uses the STL and iostreams. It does not use Boost or
-C++11, for maximum compatibility. Fairly obviously, it uses LLVM 3.2. It may
-or may not work with other versions of LLVM. (If you need it to work on another
-version, please <a href="mailto:dg@cowlark.com">get in touch</a>.)
+The Calculon library uses the STL and iostreams. It does use some Boost, but
+does not use C++11, for maximum compatibility. Fairly obviously, it uses
+LLVM 3.2. It may or may not work with other versions of LLVM. (If you need it
+to work on another version, please <a href="mailto:dg@cowlark.com">get in
+touch</a>.)
 
 The supplied <a href="../Makefile">sample Makefile</a> shows the recommended
 way to build programs that use Calculon, but the short summary is:

@@ -64,7 +64,7 @@ int main(int argc, const char* argv[])
 
 	/* Register the noise function. */
 
-	symbols.add("perlin", "D=V", perlin);
+	symbols.add("perlin", "(vector*3): double", perlin);
 
 	/* Load the Calculon function to generate the pixels. */
 

@@ -667,35 +667,75 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 	#undef REAL3
 	char _dummy;
 
-	static string convert_type_char(char c)
+private:
+	void malformed_function_signature(Lexer& lexer, const string& what)
 	{
-		switch (c)
-		{
-			case 'R': return "real";
-			case 'V': return "vector";
-			case 'B': return "boolean";
-		}
-
-		if (c == 'D')
-			return S::chooseDoubleOrFloat("real", "!double");
-		if (c == 'F')
-			return S::chooseDoubleOrFloat("!float", "real");
-
-		std::stringstream s;
-		s << "type char '" << c << "' not recognised";
-		throw CompilationException(s.str());
+		throw CompilationException(lexer.position().formatError(what));
 	}
 
+	string parse_typespec(Lexer& lexer)
+	{
+		typedef Lexer L;
+
+		if (lexer.token() != L::IDENTIFIER)
+			malformed_function_signature(lexer, "expected type name");
+
+		std::stringstream s;
+		s << lexer.id();
+		lexer.next();
+
+		if ((lexer.token() == L::OPERATOR) && (lexer.id() == "*"))
+		{
+			s << "*";
+			lexer.next();
+
+			if (lexer.token() != L::NUMBER)
+				lexer.error("invalid n-vector type specifier");
+			int size = (int)lexer.real();
+			if ((Real)size != lexer.real())
+				lexer.error("n-vector size must be an integer");
+			if (size <= 0)
+				lexer.error("n-vector size must be greater than 0");
+			lexer.next();
+
+			s << size;
+		}
+
+		string type = s.str();
+		if (type == "float")
+			return "!float";
+		if (type == "double")
+			return "!double";
+		return type;
+	}
+
+public:
 	void add(const string& name, const string& signature, void (*ptr)())
 	{
-		unsigned i = signature.find('=');
-		if (i != 1)
-			throw CompilationException("malformed external function signature");
+		std::stringstream stream(signature);
+		Lexer lexer(stream);
+		typedef Lexer L;
 
-		string returntype = convert_type_char(signature[0]);
+		if (lexer.token() != L::OPENPAREN)
+			malformed_function_signature(lexer, "expected '('");
+		lexer.next();
+
 		vector<string> inputtypes;
-		for (unsigned i = 2; i < signature.size(); i++)
-			inputtypes.push_back(convert_type_char(signature[i]));
+		while (lexer.token() != L::CLOSEPAREN)
+		{
+			inputtypes.push_back(parse_typespec(lexer));
+			if ((lexer.token() != L::CLOSEPAREN) && (lexer.token() != L::COMMA))
+				malformed_function_signature(lexer, "expected ',' or ')'");
+			if (lexer.token() == L::COMMA)
+				lexer.next();
+		}
+		lexer.next();
+
+		if (lexer.token() != L::COLON)
+			malformed_function_signature(lexer, "expected ':'");
+		lexer.next();
+
+		string returntype = parse_typespec(lexer);
 
 		add(retain(new ExternalFunctionSymbol(name, inputtypes, returntype, ptr)));
 	}

@@ -17,6 +17,7 @@
 #include <memory>
 #include <boost/aligned_storage.hpp>
 #include <boost/static_assert.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 #define __STDC_LIMIT_MACROS
 #define __STDC_CONSTANT_MACROS
@@ -258,10 +259,11 @@ namespace Calculon
 
 		#include "calculon_symbol.h"
 		#include "calculon_types.h"
+	private:
+		#include "calculon_lexer.h"
 	public:
 		#include "calculon_intrinsics.h"
 	private:
-		#include "calculon_lexer.h"
 		#include "calculon_compiler.h"
 
 	public:

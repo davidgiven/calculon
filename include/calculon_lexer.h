@@ -10,7 +10,6 @@
 #error "Don't include this, include calculon.h instead."
 #endif
 
-template <typename Real>
 class Lexer
 {
 public:
@@ -48,6 +47,8 @@ private:
 	Real _realValue;
 	Position _tokenPos;
 	Position _pos;
+
+	typedef typename S::Real Real;
 
 public:
 	Lexer(std::istream& data):

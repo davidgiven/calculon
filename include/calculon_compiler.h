@@ -21,7 +21,7 @@ private:
 	class ASTNode;
 	class ASTVariable;
 
-	typedef Lexer<Real> L;
+	typedef Lexer L;
 	typedef pair<string, char> Argument;
 
 	using CompilerState::retain;
