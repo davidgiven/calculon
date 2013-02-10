@@ -49,7 +49,8 @@ static bool readnumber(Real& d)
 template <typename Settings>
 static void process_data(std::istream& codestream, const string& typesignature,
 		bool dump, const map<string, double>& realvariables,
-		const map<string, vector<double> >& vectorvariables)
+		const map<string, vector<double> >& vectorvariables,
+		const map<string, string>& typealiases)
 {
 	typedef Calculon::Instance<Settings> Compiler;
 	typedef typename Compiler::Real Real;
@@ -70,7 +71,7 @@ static void process_data(std::istream& codestream, const string& typesignature,
 
 	typedef Real TranslateFunction(Real n);
 	typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
-			typesignature);
+			typesignature, typealiases);
 	if (dump)
 		func.dump();
 
@@ -85,7 +86,8 @@ template <typename Settings>
 static void process_data_rows(std::istream& codestream, const string& typesignature,
 		bool dump, unsigned ivsize, unsigned ovsize,
 		const map<string, double>& realvariables,
-		const map<string, vector<double> >& vectorvariables)
+		const map<string, vector<double> >& vectorvariables,
+		const map<string, string>& typealiases)
 {
 	typedef Calculon::Instance<Settings> Compiler;
 	typedef typename Compiler::Real Real;
@@ -107,7 +109,7 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
 
 	typedef void TranslateFunction(Real* out, Real* in);
 	typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
-			typesignature);
+			typesignature, typealiases);
 	if (dump)
 		func.dump();
 
@@ -159,6 +161,8 @@ int main(int argc, const char* argv[])
    				"defines a global real variable")
    		("vector,V", po::value< vector<string> >(),
    				"defines a global vector variable")
+   		("type,T", po::value< vector<string> >(),
+   				"defines a type alias")
    		("ivector,i", po::value<unsigned>(),
    				"read each row of values as a vector this big")
    		("ovector,o", po::value<unsigned>(),
@@ -266,6 +270,28 @@ int main(int argc, const char* argv[])
 		}
 	}
 
+	map<string, string > typealiases;
+	if (vm.count("type") > 0)
+	{
+		const vector<string>& params = vm["type"].as< vector<string> >();
+		for (vector<string>::const_iterator i = params.begin(),
+				e = params.end(); i != e; i++)
+		{
+			const string& definition = *i;
+			int equals = definition.find('=');
+			if (equals == string::npos)
+			{
+				std::cerr << "filter: malformed type alias definition (use -T NAME=NAME)\n"
+						  << "(try --help)\n";
+				exit(1);
+			}
+
+			string name = definition.substr(0, equals);
+			string value = definition.substr(equals+1);
+			typealiases[name] = value;
+		}
+	}
+
 	std::istream* codestream;
 	if (vm.count("file"))
 	{
@@ -317,10 +343,10 @@ int main(int argc, const char* argv[])
 		/* Data is a simple stream of numbers. */
 		if (precision == "double")
 			process_data<Calculon::RealIsDouble>(*codestream, typesignature,
-					dump, realvariables, vectorvariables);
+					dump, realvariables, vectorvariables, typealiases);
 		else
 			process_data<Calculon::RealIsFloat>(*codestream, typesignature,
-					dump, realvariables, vectorvariables);
+					dump, realvariables, vectorvariables, typealiases);
 	}
 	else
 	{
@@ -328,11 +354,11 @@ int main(int argc, const char* argv[])
 		if (precision == "double")
 			process_data_rows<Calculon::RealIsDouble>(*codestream,
 					typesignature, dump, ivsize, ovsize,
-					realvariables, vectorvariables);
+					realvariables, vectorvariables, typealiases);
 		else
 			process_data_rows<Calculon::RealIsFloat>(*codestream,
 					typesignature, dump, ivsize, ovsize,
-					realvariables, vectorvariables);
+					realvariables, vectorvariables, typealiases);
 	}
 
 	return 0;

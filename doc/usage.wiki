@@ -74,6 +74,31 @@ Vectors which are 1, 2, 3 or 4 elements long may also be derefenced via
 <code>x</code>, <code>y</code>, <code>z</code> and <code>w</code>, as
 appropriate.
 
+<h3>Type aliases</h3>
+
+When compiling your Calculon script, you may also provide an optional extra
+parameter which provides a map of type aliases. These allow you to use
+application-specific names for certain types in the script. The main use for
+this is if the application requires a certain size of vector and you don't
+want to bake knowledge of the size of vector into the script.
+
+<verbatim>
+map<string, string> typeAliases;
+#if defined NINEBYNINE
+  typeAliases["matrix"] = "vector*9";
+#else
+  typeAliases["matrix"] = "vector*4";
+#endif
+Compiler::Program<ScriptFunction> function(symbols, code,
+    "(x:matrix, y:matrix): real", typeAliases);
+</verbatim>
+
+...allows this script to work with either configuration:
+
+<verbatim>
+(x*y).sum
+</verbatim>
+
 <h3>Calling conventions</h3>
 
 Alas, the mapping between C++ parameters and Calculon parameters is not

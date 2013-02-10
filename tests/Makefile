@@ -4,6 +4,7 @@
 FILTER = ../demo/filter
 
 TESTS = \
+	type-aliases \
 	vector-splat \
 	global-vector-variables \
 	global-variables \

@@ -96,9 +96,9 @@ private:
 
 public:
 	Compiler(llvm::LLVMContext& context, llvm::Module* module,
-			llvm::ExecutionEngine* engine):
+			llvm::ExecutionEngine* engine, const map<string, string>& typealiases):
 		CompilerState(context, module, engine),
-		_typeRegistry(*this)
+		_typeRegistry(*this, typealiases)
 	{
 		types = &_typeRegistry;
 
@@ -283,7 +283,11 @@ private:
 
 			type = types->find(typenm.str());
 			if (!type)
-				lexer.error("expected a type name");
+			{
+				std::stringstream s;
+				s << "unknown type '" << typenm.str() << "'";
+				lexer.error(s.str());
+			}
 		}
 	}
 
