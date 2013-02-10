@@ -182,6 +182,42 @@ struct ASTVector : public ASTNode
 	}
 };
 
+struct ASTVectorSplat : public ASTNode
+{
+	ASTNode* value;
+	int size;
+	string typenm;
+
+	ASTVectorSplat(const Position& position, ASTNode* value, int size):
+		ASTNode(position),
+		value(value),
+		size(size)
+	{
+		value->parent = this;
+
+		std::stringstream s;
+		s << "vector*" << size;
+		typenm = s.str();
+	}
+
+	llvm::Value* codegen(Compiler& compiler)
+	{
+		VectorType* type = compiler.types->find(typenm)->asVector();
+		llvm::Value* v = llvm::UndefValue::get(type->llvm);
+
+		llvm::Value* e = value->codegen_to_real(compiler);
+		for (unsigned i = 0; i < size; i++)
+			v = type->setElement(v, i, e);
+
+		return v;
+	}
+
+	void resolveVariables(Compiler& compiler)
+	{
+		value->resolveVariables(compiler);
+	}
+};
+
 struct ASTFrame : public ASTNode
 {
 	SymbolTable* symbolTable;

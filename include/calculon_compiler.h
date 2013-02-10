@@ -585,27 +585,51 @@ private:
 		return retain(new ASTCondition(position, condition, trueval, falseval));
 	}
 
-	ASTVector* parse_vector(L& lexer)
+	ASTNode* parse_vector(L& lexer)
 	{
 		Position position = lexer.position();
 
 		expect(lexer, L::OPENBLOCK);
 
-		vector<ASTNode*> elements;
-		do
+		if ((lexer.token() == L::OPERATOR) && (lexer.id() == "*"))
 		{
+			/* Vector splat. */
+
+			lexer.next();
+			if (lexer.token() != L::NUMBER)
+				lexer.error("invalid vector size");
+			int size = (int)lexer.real();
+			if ((Real)size != lexer.real())
+				lexer.error("n-vector size must be an integer");
+			if (size <= 0)
+				lexer.error("n-vector size must be greater than 0");
+
+			lexer.next();
 			ASTNode* e = parse_expression(lexer);
-			elements.push_back(e);
+			expect(lexer, L::CLOSEBLOCK);
 
-			if (lexer.token() != L::COMMA)
-				break;
-			expect(lexer, L::COMMA);
+			return retain(new ASTVectorSplat(position, e, size));
 		}
-		while (true);
+		else
+		{
+			/* Ordinary vector literal. */
 
-		expect(lexer, L::CLOSEBLOCK);
+			vector<ASTNode*> elements;
+			do
+			{
+				ASTNode* e = parse_expression(lexer);
+				elements.push_back(e);
 
-		return retain(new ASTVector(position, elements));
+				if (lexer.token() != L::COMMA)
+					break;
+				expect(lexer, L::COMMA);
+			}
+			while (true);
+
+			expect(lexer, L::CLOSEBLOCK);
+
+			return retain(new ASTVector(position, elements));
+		}
 	}
 
 	ASTToplevel* parse_toplevel(L& lexer, FunctionSymbol* symbol,

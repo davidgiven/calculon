@@ -1,0 +1,3 @@
+/// -i 2 -o 4 < 2vector.data
+
+[*4 n.x] + [*4 n.y]

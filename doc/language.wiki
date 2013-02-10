@@ -16,12 +16,16 @@ The following list describes the major syntactic elements:
      need not be constant). You may supply any positive, non-zero number of
      elements. The size of a vector is part of its type; vectors of different
      sizes are not compatible.
+  *  <code>&#91;*4 2]</code> is also a vector; this has four elements, all of
+     which are set to 2. The size of the vector must be a constant (but the
+     value does not need to be).
   *  <code>sqrt(2)</code> calls a function. Functions may take any number of
      parameters, of any type, and return a single parameter, of any type.
      Functions are not polymorphic.
   *  <code>V.x, V.y, V.z, V.w</code> extract the first four elements from a
-     vector. (Obviously assuming the vector has enough elements.)
-     <code>V&#91;n]</code> extracts the <code>n</code>th element of a vector.
+     vector. (Obviously assuming the vector has enough elements.) An out of
+     bound access is a compile time error.
+  *  <code>V&#91;n]</code> extracts the <code>n</code>th element of a vector.
      If the vector is square --- e.g. four, nine or sixteen elements --- you
      may also use <code>V&#91;x, y]</code> to extract a given element by
      coordinate. The elements are stored in row-major order. Out of bound

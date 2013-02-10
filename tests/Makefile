@@ -4,6 +4,7 @@
 FILTER = ../demo/filter
 
 TESTS = \
+	vector-splat \
 	global-vector-variables \
 	global-variables \
 	vector-squarebrackets \
