@@ -46,6 +46,7 @@ I'm interested.)
 
   *  <a href="language.wiki">A very brief description of the Calculon language</a>
   *  <a href="usage.wiki">Using the Calculon library</a>
+  *  <a href="faq.wiki">Frequently asked questions</a>
 
 <h3>Why should I use it?</h3>
 

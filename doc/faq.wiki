@@ -29,3 +29,66 @@ let a = 1; (let b = 2; (let c = 3; (a+b+c)))
 If you prefer, it's possible to think of <code>;</code> as terminating the
 definition part of a let expression.
 
+<h3>How do I do loops efficiently?</h3>
+
+Calculon is a pure functional language and so doesn't have mutable variables.
+This means there's no such thing as a for...next loop.
+
+In order to calculate something iteratively, therefore, you have to use
+recursion. The suggested code is as follows:
+
+<verbatim>
+let f(n, accumulator) =
+  if condition then
+    accumulator /* stop value */
+  else
+    f(n+1, g(accumulator))
+</verbatim>
+
+This will repeatedly evaluate <code>g()</code> on <code>accumulator</code>
+until <code>condition</code> is true, incrementing <code>n</code> each time
+round the loop.
+
+It is very important that the recursive call to <code>f()</code> on the last
+line is <i>performs no calculations on the return value</i>. This is tail
+recursion, and the compiler knows how to optimise for it, converting the code
+above into a single loop. If you don't do this, then it will have
+to compile that call to <code>f()</code> as an actual function call, which is
+much slower and may cause your script to run out of stack (which will normally
+cause your program to crash).
+
+This is good:
+
+<verbatim>
+f(n+1, g(accumulator))
+</verbatim>
+
+...and this is bad:
+
+<verbatim>
+f(n+1, g(accumulator)) + 1
+</verbatim>
+
+See <a href="../demo/fractal.cal">fractal.cal</a> for a real example.
+
+<h3>When I'm calling out to an external function, how do I know where I'm
+being called from?</h3>
+
+Frequently it's desirable to pass context through from the called of a
+Calculon script to a function that's being called by a Calculon script. For
+example: the function that looks up a value in a 2D texture needs to know
+which texture to use.
+
+Currently there's no way to pass this information through Calculon (if you
+need it, please ask, I'd like to know if there are any use cases). However
+it's pretty simple to pass the relevant information via a backchannel. TLS
+works nicely for this; wrap the Calculon script in an object, and then just
+before calling the script set a TLS variable to the address of the object. Now
+when the external function is called, it can look up the TLS value to determine
+which instance of the script was called.
+
+(Boost's <code><a href="http://www.boost.org/doc/libs/1_53_0/doc/html/thread/thread_local_storage.html">
+thread_specific_ptr</a></code> class is probably the way to go here.)
+
+Alternatively, if you don't care about threading, you could just use a global
+variable.
