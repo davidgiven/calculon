@@ -85,6 +85,37 @@ public:
 	}
 };
 
+class ExternalVectorConstantSymbol : public ValuedSymbol
+{
+public:
+	vector<double> value;
+	string typenm;
+
+	ExternalVectorConstantSymbol(const string& name, const vector<double>& value):
+		ValuedSymbol(name),
+		value(value)
+	{
+		std::stringstream s;
+		s << "vector*" << value.size();
+		typenm = s.str();
+	}
+
+	llvm::Value* emitValue(CompilerState& state)
+	{
+		VectorType* type = state.types->find(typenm)->asVector();
+		llvm::Value* v = llvm::UndefValue::get(type->llvm);
+
+		for (unsigned i = 0; i < value.size(); i++)
+		{
+			llvm::Value* e = llvm::ConstantFP::get(
+					state.realType->llvm, value[i]);
+			v = type->setElement(v, i, e);
+		}
+
+		return v;
+	}
+};
+
 class VariableSymbol : public ValuedSymbol
 {
 public:

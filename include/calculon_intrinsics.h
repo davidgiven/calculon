@@ -742,11 +742,18 @@ public:
 		add(retain(new ExternalFunctionSymbol(name, inputtypes, returntype, ptr)));
 	}
 
-	/* Registers a global variable. */
+	/* Registers a real global variable. */
 
 	void add(const string& name, double value)
 	{
 		add(retain(new ExternalRealConstantSymbol(name, value)));
+	}
+
+	/* Registers a vector global variable. */
+
+	void add(const string& name, const vector<double>& value)
+	{
+		add(retain(new ExternalVectorConstantSymbol(name, value)));
 	}
 
 public:

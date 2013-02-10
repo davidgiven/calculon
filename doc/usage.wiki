@@ -151,8 +151,8 @@ parameters and get the same result. Be careful. (And don't forget that
 
 <h3>Registering values</h3>
 
-You may also register real global variables in the symbol table. This is
-useful for simple constants that won't change between runs of the Calculon
+You may also register real and vector global variables in the symbol table.
+This is useful for simple constants that won't change between runs of the Calculon
 script (such as: size of the output image, position of various objects in 3D
 space, etc).
 
@@ -160,11 +160,15 @@ space, etc).
 Compiler::StandardSymbolTable symbols;
 symbols.add("fortytwo", 42);
 symbols.add("pi", M_PI);
+
+vector<double> v(4);
+v[0] = 1; v[1] = 2; v[2] = 3; v[3] = 4;
+symbols.add("v", v);
 </verbatim>
 
 These values are compiled as literal into the output machine code, which means
 they are fast. However, one the script has been compiled, they cannot be
-changed. Use input parameters for these.
+changed. Use input parameters if you need to do this.
 
 <h3>Dependencies</h3>
 
