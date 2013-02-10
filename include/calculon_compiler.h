@@ -349,12 +349,17 @@ private:
 			else if (id == "pi")
 				return retain(new ASTConstant(position, M_PI));
 			else if (id == "Inf")
-				return retain(new ASTConstant(position, INFINITY));
+				return retain(new ASTConstant(position,
+						std::numeric_limits<Real>::infinity()));
 			else if (id == "NaN")
-				return retain(new ASTConstant(position, NAN));
+				return retain(new ASTConstant(position,
+						std::numeric_limits<Real>::quiet_NaN()));
 			else
 				return retain(new ASTVariable(position, id));
 		}
+
+		assert(false);
+		throw 0;
 	}
 
 	ASTNode* parse_leaf(L& lexer)
