@@ -1,8 +1,8 @@
-                               CALCULON v0.1
+                               CALCULON v0.2
                                =============
                                   
                          Copyright (C) 2013 David Given
-                                 2013-01-29
+                                 2013-02-10
             
             
                                  
@@ -15,7 +15,8 @@ shaders, user-supplied mathematical formulae, etc.
 
 The Calculon language itself is a pure functional language with support for
 upvalues, tail recursion, and bindings to the standard maths library. It
-supports 3-vectors, reals and booleans as first-class values.
+supports arbitrary sized n-vectors, reals and booleans as first-class values.
+SIMD instructions are used whereever possible to make vector operations fast.
 
 
 

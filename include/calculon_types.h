@@ -223,6 +223,9 @@ class TypeRegistry
 private:
 	CompilerState& _compiler;
 
+	typedef map<string, string> ExtraTypesMap;
+	const ExtraTypesMap& _extratypes;
+
 	typedef map<string, Type*> ByNameMap;
 	ByNameMap _byname;
 
@@ -230,8 +233,9 @@ private:
 	ByLLVMMap _byllvm;
 
 public:
-	TypeRegistry(CompilerState& state):
-		_compiler(state)
+	TypeRegistry(CompilerState& state, const ExtraTypesMap& extratypes):
+		_compiler(state),
+		_extratypes(extratypes)
 	{
 	}
 
@@ -241,8 +245,12 @@ public:
 		_byllvm[type->llvm] = type;
 	}
 
-	Type* find(const string& name)
+	Type* find(string name)
 	{
+		typename ExtraTypesMap::const_iterator ei = _extratypes.find(name);
+		if (ei != _extratypes.end())
+			name = ei->second;
+
 		typename ByNameMap::const_iterator i = _byname.find(name);
 		if (i != _byname.end())
 			return i->second;

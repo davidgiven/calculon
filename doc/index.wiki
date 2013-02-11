@@ -10,14 +10,19 @@ The Calculon language itself is a pure functional language with support for
 upvalues, tail recursion, and bindings to the standard maths library. It
 supports 3-vectors, reals and booleans as first-class values.
 
+<h3>What's new?</h3>
+
+<b>2013-02-10: Version 0.2 released!</b> Now with proper n-vector support,
+limited type inference, faster code, and better everything everywhere.
+
 <h3>Where can I get it?</h3>
 
 <blockquote class='link'>
-<a href='../../../tarball/calculon-0.1.tar.gz?uuid=release-0.1'>
+<a href='../../../tarball/calculon-0.2.tar.gz?uuid=release-0.2'>
   <img class='link-img' height='22' width='20' alt='[BIN]' src='//cowlark.com/binary.png'>
 </a>
-<a href='../../../tarball/calculon-0.1.tar.gz?uuid=release-0.1'>calculon-0.1.tar.gz</a>
-<p>Version 0.1 is available for download.</p>
+<a href='../../../tarball/calculon-0.2.tar.gz?uuid=release-0.2'>calculon-0.2.tar.gz</a>
+<p>Version 0.2 is available for download.</p>
 </blockquote>
 
 In addition, you can download
@@ -46,14 +51,15 @@ I'm interested.)
 
   *  <a href="language.wiki">A very brief description of the Calculon language</a>
   *  <a href="usage.wiki">Using the Calculon library</a>
+  *  <a href="faq.wiki">Frequently asked questions</a>
 
 <h3>Why should I use it?</h3>
 
 Calculon is <i>really simple</i>, and <i>really fast</i>.
 
-The Calculon library itself is 3000 lines of C++ and ships as a set of
+The Calculon library itself is 4000 lines of C++ and ships as a set of
 headers. It can be invoked with one line of setup and three lines per script
-you want to load and compile each. Then you get a function pointer which you
+you want to load and compile. Then you get a function pointer which you
 can just run. Don't take my word for it --- <a href="../demo/fractal.cc">look at
 one of the examples</a>.
 
@@ -63,13 +69,14 @@ Calculon script:
 
 <verbatim>0</verbatim>
 
-Here is a slightly more complicated one:
+Here is a more complicated one:
 
 <verbatim>
 /* On input, A and B are vectors */
-let nA: vector = A / A.magnitude;
-let nB: vector = B / B.magnitude;
-let dot(V1: vector, V2: vector) = V1.x*V2.x + V1.y*V2.y + V1.z*V2.z;
+let magnitude(V: vector*3) = sqrt((V*V).sum);
+let nA = A / magnitude(A);
+let nB = B / magnitude(B);
+let dot(V1: vector*3, V2: vector*3) = (V1*V2).sum;
 acos(dot(nA, nB))
 </verbatim>
 

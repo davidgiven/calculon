@@ -13,6 +13,7 @@
 class CallableSymbol;
 class ValuedSymbol;
 class VariableSymbol;
+class VariableSymbol;
 class FunctionSymbol;
 
 class Symbol : public Object
@@ -35,6 +36,11 @@ public:
 		return NULL;
 	}
 
+	virtual VariableSymbol* isVariable()
+	{
+		return NULL;
+	}
+
 	virtual CallableSymbol* isCallable()
 	{
 		return NULL;
@@ -49,12 +55,8 @@ public:
 class ValuedSymbol : public Symbol
 {
 public:
-	llvm::Value* value;
-
-public:
 	ValuedSymbol(const string& name):
-		Symbol(name),
-		value(NULL)
+		Symbol(name)
 	{
 	}
 
@@ -63,15 +65,61 @@ public:
 		return this;
 	}
 
-	virtual VariableSymbol* isVariable()
+	virtual llvm::Value* emitValue(CompilerState& state) = 0;
+};
+
+class ExternalRealConstantSymbol : public ValuedSymbol
+{
+public:
+	double value;
+
+	ExternalRealConstantSymbol(const string& name, double value):
+		ValuedSymbol(name),
+		value(value)
 	{
-		return NULL;
+	}
+
+	llvm::Value* emitValue(CompilerState& state)
+	{
+		return llvm::ConstantFP::get(state.realType->llvm, value);
+	}
+};
+
+class ExternalVectorConstantSymbol : public ValuedSymbol
+{
+public:
+	vector<double> value;
+	string typenm;
+
+	ExternalVectorConstantSymbol(const string& name, const vector<double>& value):
+		ValuedSymbol(name),
+		value(value)
+	{
+		std::stringstream s;
+		s << "vector*" << value.size();
+		typenm = s.str();
+	}
+
+	llvm::Value* emitValue(CompilerState& state)
+	{
+		VectorType* type = state.types->find(typenm)->asVector();
+		llvm::Value* v = llvm::UndefValue::get(type->llvm);
+
+		for (unsigned i = 0; i < value.size(); i++)
+		{
+			llvm::Value* e = llvm::ConstantFP::get(
+					state.realType->llvm, value[i]);
+			v = type->setElement(v, i, e);
+		}
+
+		return v;
 	}
 };
 
 class VariableSymbol : public ValuedSymbol
 {
 public:
+	llvm::Value* value;
 	Type* type;
 	FunctionSymbol* function;
 	string hash;
@@ -89,6 +137,11 @@ public:
 	VariableSymbol* isVariable()
 	{
 		return this;
+	}
+
+	llvm::Value* emitValue(CompilerState& state)
+	{
+		return value;
 	}
 };
 
@@ -300,6 +353,7 @@ class ExternalFunctionSymbol : public CallableSymbol
 	void (*pointer)();
 
 public:
+	using Symbol::name;
 	using CallableSymbol::typeCheckParameter;
 	using CallableSymbol::typeError;
 
@@ -317,6 +371,23 @@ public:
 		CallableSymbol::checkParameterCount(state, calledwith, inputtypenames.size());
 	}
 
+private:
+	Type* lookup_type(CompilerState& state, const string& n)
+	{
+		Type* t = state.types->find(n);
+		if (!t)
+		{
+			std::stringstream s;
+			s << "type '" << n
+			  << "' unknown in declaration of external function '"
+			  << name << "'";
+
+			throw CompilationException(s.str());
+		}
+		return t;
+	}
+
+public:
 	llvm::Value* emitCall(CompilerState& state,
 			const vector<llvm::Value*>& parameters)
 	{
@@ -325,8 +396,7 @@ public:
 		vector<llvm::Value*> llvmvalues;
 		vector<llvm::Type*> llvmtypes;
 
-		Type* returntype = state.types->find(returntypename);
-		assert(returntype);
+		Type* returntype = lookup_type(state, returntypename);
 		llvm::Type* externalreturntype = returntype->llvmx;
 
 		/* If we're returning a vector, insert the return pointer now.
@@ -349,8 +419,7 @@ public:
 		while (pi != parameters.end())
 		{
 			llvm::Value* value = *pi;
-			Type* internalctype = state.types->find(inputtypenames[i]);
-			assert(internalctype);
+			Type* internalctype = lookup_type(state, inputtypenames[i]);
 			typeCheckParameter(state, i+1, value, internalctype);
 
 			if (internalctype->asVector())

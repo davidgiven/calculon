@@ -14,27 +14,40 @@ The following list describes the major syntactic elements:
   *  <code>true</code> or <code>false</code> are boolean constants.
   *  <code>&#91;0, 1, 2]</code> is a vector. The elements must be reals (but
      need not be constant). You may supply any positive, non-zero number of
-     elements.
+     elements. The size of a vector is part of its type; vectors of different
+     sizes are not compatible.
+  *  <code>&#91;*4 2]</code> is also a vector; this has four elements, all of
+     which are set to 2. The size of the vector must be a constant (but the
+     value does not need to be).
   *  <code>sqrt(2)</code> calls a function. Functions may take any number of
      parameters, of any type, and return a single parameter, of any type.
      Functions are not polymorphic.
   *  <code>V.x, V.y, V.z, V.w</code> extract the first four elements from a
-     vector. (Obviously assuming the vector has enough elements.)
+     vector. (Obviously assuming the vector has enough elements.) An out of
+     bound access is a compile time error.
+  *  <code>V&#91;n]</code> extracts the <code>n</code>th element of a vector.
+     If the vector is square --- e.g. four, nine or sixteen elements --- you
+     may also use <code>V&#91;x, y]</code> to extract a given element by
+     coordinate. The elements are stored in row-major order. Out of bound
+     indices wrap.
+  *  <code>V.length</code> returns the number of elements in a vector. 
   *  <code>V.sum</code> computes the sum of all elements in the vector. (You
      can calculate the Pythagorean magnitude of a vector with
      <code>sqrt(V*V)</code>, of course.)
   *  <code>let i = 1; ...expr...</code> defines a variable that becomes
      available when evaluating <code>expr</code>. The new variable is does
-     not have an explicit type and is therefore considered to be a real (no
-     type inference is done).
+     not have an explicit type and its type is inferred from its definition.
   *  <code>let v: vector*3 = &#91;0, 1, 2]; ...expr...</code> defines a variable
      that becomes available when evaluating <code>expr</code>. The new
-     variable is explicitly typed. You must specify the size of vectors.
+     variable is explicitly typed and if you try to define a variable with a
+     type that differs from its declaration you will get an error. You must
+     specify the size of vectors.
   *  <code>let f(v1:vector*3, v2:vector*3):vector*3 = v1 + v2; ...expr...</code>
      defines a function. The new function is available both when evaluating
      <code>expr</code> <b>and</b> inside the function body, which allows
      recursion. Note that the scoping rules here are different to when you
-     define a variable!
+     define a variable! Also note that type inference is <i>not</i> done on
+     functions!
   *  <code>if booleanvalue then truevalue else falsevalue</code> does 
      conditional evaluation. If <code>booleanvalue</code> is <code>true</code>
      then <code>truevalue</code> is evaluated; otherwise

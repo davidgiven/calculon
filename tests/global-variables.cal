@@ -1,0 +1,4 @@
+/// -i 1 -o 4 -Done=1 -Dinfinity=Inf -Dnotanumber=NaN -Dminusone=-1 < 1vector.data
+
+let x = n.x;
+[x+one, x+infinity, x+notanumber, x+minusone]

@@ -10,7 +10,6 @@
 #error "Don't include this, include calculon.h instead."
 #endif
 
-template <typename Real>
 class Lexer
 {
 public:

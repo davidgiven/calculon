@@ -140,7 +140,7 @@ struct ASTVariable : public ASTNode
 
 	llvm::Value* codegen(Compiler& compiler)
 	{
-		return symbol->value;
+		return symbol->emitValue(compiler);
 	}
 };
 
@@ -179,6 +179,42 @@ struct ASTVector : public ASTNode
 	{
 		for (unsigned i = 0; i < elements.size(); i++)
 			elements[i]->resolveVariables(compiler);
+	}
+};
+
+struct ASTVectorSplat : public ASTNode
+{
+	ASTNode* value;
+	unsigned size;
+	string typenm;
+
+	ASTVectorSplat(const Position& position, ASTNode* value, unsigned size):
+		ASTNode(position),
+		value(value),
+		size(size)
+	{
+		value->parent = this;
+
+		std::stringstream s;
+		s << "vector*" << size;
+		typenm = s.str();
+	}
+
+	llvm::Value* codegen(Compiler& compiler)
+	{
+		VectorType* type = compiler.types->find(typenm)->asVector();
+		llvm::Value* v = llvm::UndefValue::get(type->llvm);
+
+		llvm::Value* e = value->codegen_to_real(compiler);
+		for (unsigned i = 0; i < size; i++)
+			v = type->setElement(v, i, e);
+
+		return v;
+	}
+
+	void resolveVariables(Compiler& compiler)
+	{
+		value->resolveVariables(compiler);
 	}
 };
 
@@ -241,6 +277,15 @@ struct ASTDefineVariable : public ASTFrame
 	{
 		llvm::Value* v = value->codegen(compiler);
 		_symbol->value = v;
+
+		if (!type)
+		{
+			/* Now we have a value for this variable, we can find out what
+			 * type it is.
+			 */
+
+			_symbol->type = type = compiler.types->find(v->getType());
+		}
 
 		if (v->getType() != type->llvm)
 		{

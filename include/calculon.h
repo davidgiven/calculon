@@ -17,6 +17,7 @@
 #include <memory>
 #include <boost/aligned_storage.hpp>
 #include <boost/static_assert.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 #define __STDC_LIMIT_MACROS
 #define __STDC_CONSTANT_MACROS
@@ -258,10 +259,11 @@ namespace Calculon
 
 		#include "calculon_symbol.h"
 		#include "calculon_types.h"
+	private:
+		#include "calculon_lexer.h"
 	public:
 		#include "calculon_intrinsics.h"
 	private:
-		#include "calculon_lexer.h"
 		#include "calculon_compiler.h"
 
 	public:
@@ -280,19 +282,38 @@ namespace Calculon
 			typedef typename S::Real Real;
 
 		public:
+			Program(SymbolTable& symbols, const string& code, const string& signature,
+						const map<string, string>& typealiases):
+					_symbols(symbols),
+					_funcptr(NULL)
+			{
+				std::istringstream stream(code);
+				init(stream, signature, typealiases);
+			}
+
 			Program(SymbolTable& symbols, const string& code, const string& signature):
 					_symbols(symbols),
 					_funcptr(NULL)
 			{
 				std::istringstream stream(code);
-				init(stream, signature);
+				map<string, string> typealiases;
+				init(stream, signature, typealiases);
+			}
+
+			Program(SymbolTable& symbols, std::istream& code, const string& signature,
+						const map<string, string>& typealiases):
+					_symbols(symbols),
+					_funcptr(NULL)
+			{
+				init(code, signature, typealiases);
 			}
 
 			Program(SymbolTable& symbols, std::istream& code, const string& signature):
 					_symbols(symbols),
 					_funcptr(NULL)
 			{
-				init(code, signature);
+				map<string, string> typealiases;
+				init(code, signature, typealiases);
 			}
 
 			~Program()
@@ -310,7 +331,8 @@ namespace Calculon
 			}
 
 		private:
-			void init(std::istream& codestream, const string& signature)
+			void init(std::istream& codestream, const string& signature,
+					const map<string, string>& typealiases)
 			{
 				_module = new llvm::Module("Calculon Function", _context);
 
@@ -339,7 +361,7 @@ namespace Calculon
 				_engine->DisableLazyCompilation();
 	//			_engine->DisableSymbolSearching();
 
-				Compiler compiler(_context, _module, _engine);
+				Compiler compiler(_context, _module, _engine, typealiases);
 
 				/* Compile the program. */
 

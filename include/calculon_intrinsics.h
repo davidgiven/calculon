@@ -366,7 +366,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 
 				vector<llvm::Constant*> mask1array;
 				vector<llvm::Constant*> mask2array;
-				for (unsigned i = 0; i < osize; i++)
+				for (int i = 0; i < osize; i++)
 				{
 					mask1array.push_back(
 							llvm::ConstantInt::get(state.intType, i + minelement));
@@ -528,6 +528,105 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 	}
 	_wMethod;
 
+	class VectorSquareBracketMethod : public BitcodeSymbol
+	{
+		using CallableSymbol::vectorSizeError;
+		using CallableSymbol::typeError;
+
+	public:
+		VectorSquareBracketMethod():
+			BitcodeSymbol("method []", -1)
+		{
+		}
+
+		void checkParameterCount(CompilerState& state, int calledwith)
+		{
+			/* Accept one or two parameters. */
+			if ((calledwith == 2) || (calledwith == 3))
+				return;
+
+			/* Otherwise, let the superclass produce the error. */
+			BitcodeSymbol::checkParameterCount(state, calledwith);
+		}
+
+		void typeCheckParameter(CompilerState& state,
+					int index, llvm::Value* argument, Type* type)
+		{
+			Type* t = state.types->find(argument->getType());
+
+			switch (index)
+			{
+				case 1:
+					if (!t->asVector())
+						typeError(state, index, argument, type);
+					break;
+
+				default:
+					if (!t->equals(state.realType))
+						typeError(state, index, argument, type);
+					break;
+			}
+		}
+
+		llvm::Type* returnType(CompilerState& state,
+				const vector<llvm::Type*>& inputTypes)
+		{
+			return state.realType->llvm;
+		}
+
+		llvm::Value* emitBitcode(CompilerState& state,
+				const vector<llvm::Value*>& parameters)
+		{
+			llvm::Value* vector = parameters[0];
+			VectorType* t = state.types->find(vector->getType())->asVector();
+
+			llvm::Value* element;
+			switch (parameters.size())
+			{
+				case 2:
+				{
+					element = state.builder.CreateFPToUI(parameters[1],
+							state.intType);
+					break;
+				}
+
+				case 3:
+				{
+					/* Square vectors */
+
+					unsigned root = (unsigned)sqrt(t->size);
+					if ((root*root) != t->size)
+					{
+						std::stringstream s;
+						s << "you can only use a .mXY operator on square vectors, and this one has "
+						  << t->size << " element";
+						if (t->size != 1)
+							s << "s";
+
+						throw CompilationException(state.position.formatError(s.str()));
+					}
+
+					llvm::Value* x = state.builder.CreateFPToUI(parameters[1],
+							state.intType);
+					llvm::Value* y = state.builder.CreateFPToUI(parameters[2],
+							state.intType);
+					element = state.builder.CreateMul(y,
+							llvm::ConstantInt::get(state.intType, root));
+					element = state.builder.CreateAdd(element, x);
+					break;
+				}
+
+				default:
+					assert(false);
+			}
+
+			element = state.builder.CreateURem(element,
+					llvm::ConstantInt::get(state.intType, t->size));
+			return state.builder.CreateExtractElement(vector, element);
+		}
+	}
+	_vectorSquareBracketMethod;
+
 	class SimpleRealExternal : public IntrinsicFunctionSymbol
 	{
 		using Symbol::name;
@@ -568,37 +667,93 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 	#undef REAL3
 	char _dummy;
 
-	static string convert_type_char(char c)
+private:
+	void malformed_function_signature(Lexer& lexer, const string& what)
 	{
-		switch (c)
-		{
-			case 'R': return "real";
-			case 'V': return "vector";
-			case 'B': return "boolean";
-		}
+		throw CompilationException(lexer.position().formatError(what));
+	}
 
-		if (c == 'D')
-			return S::chooseDoubleOrFloat("real", "!double");
-		if (c == 'F')
-			return S::chooseDoubleOrFloat("!float", "real");
+	string parse_typespec(Lexer& lexer)
+	{
+		typedef Lexer L;
+
+		if (lexer.token() != L::IDENTIFIER)
+			malformed_function_signature(lexer, "expected type name");
 
 		std::stringstream s;
-		s << "type char '" << c << "' not recognised";
-		throw CompilationException(s.str());
+		s << lexer.id();
+		lexer.next();
+
+		if ((lexer.token() == L::OPERATOR) && (lexer.id() == "*"))
+		{
+			s << "*";
+			lexer.next();
+
+			if (lexer.token() != L::NUMBER)
+				lexer.error("invalid n-vector type specifier");
+			int size = (int)lexer.real();
+			if ((Real)size != lexer.real())
+				lexer.error("n-vector size must be an integer");
+			if (size <= 0)
+				lexer.error("n-vector size must be greater than 0");
+			lexer.next();
+
+			s << size;
+		}
+
+		string type = s.str();
+		if (type == "float")
+			return "!float";
+		if (type == "double")
+			return "!double";
+		return type;
 	}
+
+public:
+	/* Registers an external function. */
 
 	void add(const string& name, const string& signature, void (*ptr)())
 	{
-		unsigned i = signature.find('=');
-		if (i != 1)
-			throw CompilationException("malformed external function signature");
+		std::stringstream stream(signature);
+		Lexer lexer(stream);
+		typedef Lexer L;
 
-		string returntype = convert_type_char(signature[0]);
+		if (lexer.token() != L::OPENPAREN)
+			malformed_function_signature(lexer, "expected '('");
+		lexer.next();
+
 		vector<string> inputtypes;
-		for (unsigned i = 2; i < signature.size(); i++)
-			inputtypes.push_back(convert_type_char(signature[i]));
+		while (lexer.token() != L::CLOSEPAREN)
+		{
+			inputtypes.push_back(parse_typespec(lexer));
+			if ((lexer.token() != L::CLOSEPAREN) && (lexer.token() != L::COMMA))
+				malformed_function_signature(lexer, "expected ',' or ')'");
+			if (lexer.token() == L::COMMA)
+				lexer.next();
+		}
+		lexer.next();
+
+		if (lexer.token() != L::COLON)
+			malformed_function_signature(lexer, "expected ':'");
+		lexer.next();
+
+		string returntype = parse_typespec(lexer);
 
 		add(retain(new ExternalFunctionSymbol(name, inputtypes, returntype, ptr)));
+	}
+
+	/* Registers a real global variable. */
+
+	void add(const string& name, double value)
+	{
+		add(retain(new ExternalRealConstantSymbol(name, value)));
+	}
+
+	/* Registers a vector global variable. */
+
+	void add(const string& name, const vector<double>& value)
+	{
+		add(retain(new ExternalVectorConstantSymbol(name, value)));
 	}
 
 public:
@@ -636,6 +791,7 @@ public:
 		add(&_yMethod);
 		add(&_zMethod);
 		add(&_wMethod);
+		add(&_vectorSquareBracketMethod);
 
 		#define REAL1(n) add(&_##n);
 		#define REAL2(n) add(&_##n);
