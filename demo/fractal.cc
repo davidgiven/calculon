@@ -21,27 +21,36 @@ Compiler::StandardSymbolTable symbols;
 
 int main(int argc, const char* argv[])
 {
+	Real minr = -2.0;
+	Real mini = -1.0;
+	Real maxr = 1.0;
+	Real maxi = 1.0;
+	unsigned width = 1024;
+	unsigned height = 1024;
+	string scriptfilename = "fractal.cal";
+	string outputfilename = "fractal.pgm";
+
 	po::options_description options("Allowed options");
 	options.add_options()
 	    ("help,h",
 	    		"produce help message")
-	    ("minr",     po::value<Real>()->default_value(-2.0),
+	    ("minr",     po::value(&minr),
 	    		"minimum real part")
-	    ("mini",     po::value<Real>()->default_value(-1.0),
+	    ("mini",     po::value(&mini),
 	    		"minimum imaginary part")
-	    ("maxr",     po::value<Real>()->default_value(1.0),
+	    ("maxr",     po::value(&maxr),
 	    		"maximum real part")
-	    ("maxi",     po::value<Real>()->default_value(1.0),
+	    ("maxi",     po::value(&maxi),
 	    		"maximum imaginary part")
-	    ("width,x",  po::value<int>()->default_value(1024),
+	    ("width,x",  po::value(&width),
 	    		"width of output image")
-	    ("height,y", po::value<int>()->default_value(1024),
+	    ("height,y", po::value(&height),
 	    		"height of output image")
-	    ("file,f",   po::value<string>()->default_value("fractal.cal"),
+	    ("file,f",   po::value(&scriptfilename),
 	    		"input Calculon script name")
 	    ("dump,d",
 	    		"dump LLVM bitcode after compilation")
-	    ("output,o", po::value<string>()->default_value("fractal.pgm"),
+	    ("output,o", po::value(&outputfilename),
 	    		"output filename")
 	;
 
@@ -55,14 +64,6 @@ int main(int argc, const char* argv[])
 		exit(1);
 	}
 
-	Real minr = vm["minr"].as<Real>();
-	Real mini = vm["mini"].as<Real>();
-	Real maxr = vm["maxr"].as<Real>();
-	Real maxi = vm["maxi"].as<Real>();
-	int width = vm["width"].as<int>();
-	int height = vm["height"].as<int>();
-	string scriptfilename = vm["file"].as<string>();
-	string outputfilename = vm["output"].as<string>();
 	bool dump = (vm.count("dump") > 0);
 
 	/* Load the Calculon function to generate the pixels. */

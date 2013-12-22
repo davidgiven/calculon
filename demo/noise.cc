@@ -30,19 +30,24 @@ double perlin(Vector3* v)
 
 int main(int argc, const char* argv[])
 {
+	unsigned width = 1024;
+	unsigned height = 1024;
+	string scriptfilename = "noise.cal";
+	string outputfilename = "noise.ppm";
+
 	po::options_description options("Allowed options");
 	options.add_options()
 	    ("help,h",
 	    		"produce help message")
-	    ("width,x",  po::value<int>()->default_value(1024),
+	    ("width,x",  po::value(&width),
 	    		"width of output image")
-	    ("height,y", po::value<int>()->default_value(1024),
+	    ("height,y", po::value(&height),
 	    		"height of output image")
-	    ("file,f",   po::value<string>()->default_value("noise.cal"),
+	    ("file,f",   po::value(&scriptfilename),
 	    		"input Calculon script name")
 		("dump,d",
 				"dump LLVM bitcode after compilation")
-	    ("output,o", po::value<string>()->default_value("noise.ppm"),
+	    ("output,o", po::value(&outputfilename),
 	    		"output filename")
 	;
 
@@ -56,10 +61,6 @@ int main(int argc, const char* argv[])
 		exit(1);
 	}
 
-	int width = vm["width"].as<int>();
-	int height = vm["height"].as<int>();
-	string scriptfilename = vm["file"].as<string>();
-	string outputfilename = vm["output"].as<string>();
 	bool dump = (vm.count("dump") > 0);
 
 	/* Register the noise function. */
