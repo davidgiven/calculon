@@ -101,7 +101,7 @@ namespace Calculon
 			enum
 			{
 				LENGTH = size * sizeof(typename S::Real),
-				ALIGN = (LENGTH < 16) ? LENGTH : 16
+				ALIGN = LENGTH
 			};
 
 			union
@@ -117,7 +117,7 @@ namespace Calculon
 			enum
 			{
 				LENGTH = 1 * sizeof(typename S::Real),
-				ALIGN = (LENGTH < 16) ? LENGTH : 16
+				ALIGN = LENGTH
 			};
 
 			union
@@ -137,7 +137,7 @@ namespace Calculon
 			enum
 			{
 				LENGTH = 2 * sizeof(typename S::Real),
-				ALIGN = (LENGTH < 16) ? LENGTH : 16
+				ALIGN = LENGTH
 			};
 
 			union
@@ -177,7 +177,7 @@ namespace Calculon
 			enum
 			{
 				LENGTH = 4 * sizeof(typename S::Real),
-				ALIGN = (LENGTH < 16) ? LENGTH : 16
+				ALIGN = LENGTH
 			};
 
 			union
