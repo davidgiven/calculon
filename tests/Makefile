@@ -5,6 +5,7 @@ FILTER = ../demo/filter
 
 TESTS = \
 	type-aliases \
+	copy \
 	vector-splat \
 	global-vector-variables \
 	global-variables \

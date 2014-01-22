@@ -10,7 +10,7 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
-#include "libnoise/noise.h"
+#include NOISEINC
 
 #include "calculon.h"
 
@@ -83,7 +83,10 @@ static void process_data(std::istream& codestream, const string& typesignature,
     Real d;
     while (readnumber(d))
     {
-        std::cout << func(d) << "\n";
+		Real o = func(d);
+		if (isnan(o))
+			o = NAN;
+        std::cout << o << "\n";
     }
 }
 
@@ -137,7 +140,12 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
         func(out, in);
 
         for (unsigned i = 0; i < ovsize; i++)
-            std::cout << out[i] << " ";
+		{
+			Real o = out[i];
+			if (isnan(o))
+				o = NAN;
+            std::cout << o << " ";
+		}
         std::cout << "\n";
     }
 }

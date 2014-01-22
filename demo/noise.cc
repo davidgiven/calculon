@@ -8,7 +8,7 @@
 #include <fstream>
 #include <math.h>
 #include <boost/program_options.hpp>
-#include "libnoise/noise.h"
+#include NOISEINC
 
 #include "calculon.h"
 
