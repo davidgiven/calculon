@@ -2,5 +2,5 @@
 -0 -1 -2 -3 
 3 2 1 0 
 -3 -2 -1 -0 
-inf inf inf inf 
++inf +inf +inf +inf 
 nan nan nan nan 
