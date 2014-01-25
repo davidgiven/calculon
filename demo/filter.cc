@@ -17,6 +17,7 @@
 using std::string;
 using std::vector;
 using std::map;
+using std::fpclassify;
 namespace po = boost::program_options;
 
 enum
