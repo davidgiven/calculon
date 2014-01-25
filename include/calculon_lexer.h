@@ -146,6 +146,7 @@ public:
 
 			default:
 				assert(false);
+				throw NULL;
 		}
 	}
 
