@@ -51,6 +51,27 @@ static bool readnumber(Real& d)
     return true;
 }
 
+template <typename Real>
+static void render(std::ostream& stream, Real d)
+{
+	switch (fpclassify(d))
+	{
+		case FP_NAN:
+			stream << "nan";
+			break;
+
+		case FP_INFINITE:
+			if (d < 0)
+				stream << "-inf";
+			else
+				stream << "+inf";
+			break;
+
+		default:
+			stream << d;
+	}
+}
+
 template <typename Settings>
 static void process_data(std::istream& codestream, const string& typesignature,
         bool dump, const map<string, double>& realvariables,
@@ -84,9 +105,8 @@ static void process_data(std::istream& codestream, const string& typesignature,
     while (readnumber(d))
     {
 		Real o = func(d);
-		if (isnan(o))
-			o = NAN;
-        std::cout << o << "\n";
+		render(std::cout, o);
+		std::cout << "\n";
     }
 }
 
@@ -142,9 +162,8 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
         for (unsigned i = 0; i < ovsize; i++)
 		{
 			Real o = out[i];
-			if (isnan(o))
-				o = NAN;
-            std::cout << o << " ";
+			render(std::cout, o);
+            std::cout << " ";
 		}
         std::cout << "\n";
     }
