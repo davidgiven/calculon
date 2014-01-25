@@ -136,7 +136,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 			else
 			{
 				assert(false);
-				throw NULL;
+				throw 0;
 			}
 		}
 	}
@@ -178,7 +178,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 			else
 			{
 				assert(false);
-				throw NULL;
+				throw 0;
 			}
 		}
 	}
@@ -246,7 +246,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 
 				default:
 					assert(false);
-					throw NULL;
+					throw 0;
 			}
 		}
 	}
