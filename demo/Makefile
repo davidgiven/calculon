@@ -6,7 +6,7 @@ CXX = g++
 
 BOOST =
 NOISE = -lnoise -DNOISEINC=\"libnoise/noise.h\"
-LLVM = -I$(shell llvm-config-3.2 --includedir) -lLLVM-3.2
+LLVM = -I$(shell llvm-config-3.3 --includedir) -lLLVM-3.3
 #LLVM = $(shell /tmp/llvm/bin/llvm-config --cflags --ldflags --libs)
 CFLAGS = -g -I../include $(BOOST)
 

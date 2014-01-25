@@ -740,11 +740,9 @@ public:
 
 		llvm::Constant* f = state.module->getOrInsertFunction(
 				intrinsicName(llvmtypes), ft,
-				llvm::AttrListPtr::get(state.context,
-					llvm::AttributeWithIndex::get(
-							state.context,
-							llvm::AttrListPtr::FunctionIndex,
-							llvm::Attributes::ReadNone)));
+				llvm::AttributeSet().addAttribute(state.context,
+							llvm::AttributeSet::FunctionIndex,
+							llvm::Attribute::ReadNone));
 
 		return state.builder.CreateCall(f, parameters);
 	}
