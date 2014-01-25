@@ -357,11 +357,11 @@ int main(int argc, const char* argv[])
 
     string typesignature;
     if (ivsize == 0)
-        typesignature = "(n: real): real";
+        typesignature = "(n: real): (out: real)";
     else
     {
         std::stringstream s;
-        s << "(n: vector*" << ivsize << "): vector*" << ovsize;
+        s << "(n: vector*" << ivsize << "): (out: vector*" << ovsize << ")";
         typesignature = s.str();
     }
 

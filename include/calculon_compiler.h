@@ -127,11 +127,14 @@ public:
 			SymbolTable* globals)
 	{
 		vector<VariableSymbol*> arguments;
-		Type* returntype;
+		vector<VariableSymbol*> returns;
 
 		L signaturelexer(signaturestream);
-		parse_functionsignature(signaturelexer, arguments, returntype);
+		parse_toplevelsignature(signaturelexer, arguments, returns);
 		expect_eof(signaturelexer);
+
+		assert(returns.size() == 1);
+		Type* returntype = returns[0]->isVariable()->type;
 
 		FunctionSymbol* functionsymbol = retain(new FunctionSymbol("<toplevel>",
 				arguments, returntype));
@@ -291,8 +294,7 @@ private:
 		}
 	}
 
-	void parse_functionsignature(L& lexer, vector<VariableSymbol*>& arguments,
-			Type*& returntype)
+	void parse_paramlist(L& lexer, vector<VariableSymbol*>& list)
 	{
 		expect(lexer, L::OPENPAREN);
 
@@ -307,14 +309,28 @@ private:
 				type = realType;
 
 			VariableSymbol* symbol = retain(new VariableSymbol(id, type));
-			arguments.push_back(symbol);
+			list.push_back(symbol);
 			parse_list_separator(lexer);
 		}
 
 		expect(lexer, L::CLOSEPAREN);
+	}
+
+	void parse_functionsignature(L& lexer, vector<VariableSymbol*>& arguments,
+			Type*& returntype)
+	{
+		parse_paramlist(lexer, arguments);
 		parse_typespec(lexer, returntype);
 		if (!returntype)
 			returntype = realType;
+	}
+
+	void parse_toplevelsignature(L& lexer, vector<VariableSymbol*>& arguments,
+			vector<VariableSymbol*>& returns)
+	{
+		parse_paramlist(lexer, arguments);
+		expect(lexer, L::COLON);
+		parse_paramlist(lexer, returns);
 	}
 
 	ASTNode* parse_variable_or_function_call(L& lexer)
