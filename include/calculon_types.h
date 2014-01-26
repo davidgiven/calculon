@@ -150,9 +150,10 @@ class VectorType : public Type
 {
 public:
 	unsigned size;
-	llvm::Type* llvmpointer;
 
 	using Type::state;
+	using Type::llvm;
+	using Type::llvmx;
 
 public:
 	VectorType(CompilerState& state, const string& name, unsigned size):
@@ -160,14 +161,9 @@ public:
 		size(size)
 	{
 		llvm::Type* t = state.types->find("real")->llvm;
-		this->llvm = llvm::VectorType::get(t, size);
+		llvm = llvm::VectorType::get(t, size);
 
-		vector<llvm::Type*> elements;
-		elements.insert(elements.begin(), size, t);
-
-		this->llvmpointer = llvm::PointerType::get(this->llvm, 0);
-
-		this->llvmx = this->llvmpointer;
+		llvmx = llvm::PointerType::get(llvm, 0);
 	}
 
 	VectorType* asVector()

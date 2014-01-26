@@ -238,7 +238,7 @@ int main(int argc, const char* argv[])
                 e = variableparams.end(); i != e; i++)
         {
             const string& definition = *i;
-            int equals = definition.find('=');
+            string::size_type equals = definition.find('=');
             if (equals == string::npos)
             {
                 std::cerr << "filter: malformed variable definition (use -D NAME=REAL)\n"
@@ -267,7 +267,7 @@ int main(int argc, const char* argv[])
                 e = variableparams.end(); i != e; i++)
         {
             const string& definition = *i;
-            int equals = definition.find('=');
+            string::size_type equals = definition.find('=');
             if (equals == string::npos)
             {
                 std::cerr << "filter: malformed variable definition (use -V NAME=REAL,REAL...)\n"
@@ -307,7 +307,7 @@ int main(int argc, const char* argv[])
                 e = params.end(); i != e; i++)
         {
             const string& definition = *i;
-            int equals = definition.find('=');
+            string::size_type equals = definition.find('=');
             if (equals == string::npos)
             {
                 std::cerr << "filter: malformed type alias definition (use -T NAME=NAME)\n"

@@ -1,7 +1,10 @@
-/* Calculates the intensity of a pixel in the Mandelbrot set given by
- * the coordinates (r, i).
+/* Calculates the intensity of a pixel in the Mandelbrot set given.
  *
- * Output intensity is 0..1.
+ * Inputs:
+ *   (r, i)        input coordinates
+ *
+ * Outputs:
+ *   intensity     output intensity from 0 to 1
  */
 
 let cr = r;
@@ -15,4 +18,5 @@ let iterations(r, i, n) =
 		iterations(r*r - i*i + cr, 2*r*i + ci, n+1);
 
 let n = iterations(r, i, 0);
-if n > maxi then 0 else n/maxi
+let intensity = if n > maxi then 0 else n/maxi;
+return

@@ -365,78 +365,10 @@ namespace Calculon
 				/* Compile the program. */
 
 				std::istringstream signaturestream(signature);
-				FunctionSymbol* f = compiler.compile(signaturestream, codestream,
+				ToplevelSymbol* f = compiler.compile(signaturestream, codestream,
 						&_symbols);
+				_function = f->function;
 
-				/* Create the interface function from this signature. */
-
-				const vector<VariableSymbol*>& arguments = f->arguments;
-				vector<llvm::Type*> externaltypes;
-
-				llvm::Type* returntype = f->returntype->llvmx;
-				bool inputoffset = false;
-				if (f->returntype->asVector())
-				{
-					/* Insert an argument at the front which is the return-by-
-					 * reference vector return value.
-					 */
-
-					externaltypes.push_back(f->returntype->llvmx);
-					returntype = llvm::Type::getVoidTy(_context);
-					inputoffset = true;
-				}
-
-				for (unsigned i=0; i<arguments.size(); i++)
-				{
-					VariableSymbol* symbol = arguments[i];
-					externaltypes.push_back(symbol->type->llvmx);
-				}
-
-				llvm::FunctionType* ft = llvm::FunctionType::get(
-						returntype, externaltypes, false);
-
-				_function = llvm::Function::Create(ft,
-						llvm::Function::ExternalLinkage,
-						"Entrypoint", _module);
-
-				llvm::BasicBlock* bb = llvm::BasicBlock::Create(_context, "entry", _function);
-				compiler.builder.SetInsertPoint(bb);
-
-				/* Marshal the external types to the internal types. */
-
-				vector<llvm::Value*> params;
-
-				{
-					int i = 0;
-					llvm::Function::arg_iterator ii = _function->arg_begin();
-					if (inputoffset)
-						ii++;
-					while (ii != _function->arg_end())
-					{
-						llvm::Value* v = ii;
-						VariableSymbol* symbol = arguments[i];
-
-						v->setName(symbol->name);
-						if (symbol->type->asVector())
-							v = symbol->type->asVector()->loadFromArray(v);
-
-						params.push_back(v);
-						i++;
-						ii++;
-					}
-				}
-
-				/* Call the internal function. */
-
-				llvm::Value* retval = f->emitCall(compiler, params);
-
-				if (f->returntype->asVector())
-				{
-					f->returntype->asVector()->storeToArray(retval, _function->arg_begin());
-					retval = NULL;
-				}
-
-				compiler.builder.CreateRet(retval);
 
 				generate_machine_code();
 			}
@@ -445,7 +377,7 @@ namespace Calculon
 
 			void generate_machine_code()
 			{
-//				_module->dump();
+				//_module->dump();
 				llvm::verifyFunction(*_function);
 
 				llvm::FunctionPassManager fpm(_module);
