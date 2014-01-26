@@ -134,7 +134,10 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 				return v;
 			}
 			else
+			{
 				assert(false);
+				throw 0;
+			}
 		}
 	}
 	_eqMethod;
@@ -173,7 +176,10 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 				return v;
 			}
 			else
+			{
 				assert(false);
+				throw 0;
+			}
 		}
 	}
 	_neMethod;
@@ -237,8 +243,11 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 
 					return state.builder.CreateFSub(lhs, rhs);
 				}
+
+				default:
+					assert(false);
+					throw 0;
 			}
-			assert(false);
 		}
 	}
 	_subMethod;

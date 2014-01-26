@@ -6,7 +6,7 @@ CXX = g++
 
 BOOST =
 NOISE = -lnoise -DNOISEINC=\"libnoise/noise.h\"
-LLVM = -I$(shell llvm-config-3.2 --includedir) -lLLVM-3.2
+LLVM = -I$(shell llvm-config-3.3 --includedir) -lLLVM-3.3
 #LLVM = $(shell /tmp/llvm/bin/llvm-config --cflags --ldflags --libs)
 CFLAGS = -g -I../include $(BOOST)
 
@@ -19,9 +19,9 @@ osx:
 		NOISE="-I$(shell brew --prefix)/Cellar/libnoise/1.0.0/include \
 			-L$(shell brew --prefix)/Cellar/libnoise/1.0.0/lib \
 			-lnoise -DNOISEINC=\\\"noise/noise.h\\\"" \
-		LLVM="-I$(shell brew --prefix)/Cellar/llvm32/3.2/lib/llvm-3.2/include \
-			-L$(shell brew --prefix)/Cellar/llvm32/3.2/lib/llvm-3.2/lib \
-			-lLLVM-3.2svn"
+		LLVM="-I$(shell llvm-config-3.3 --includedir) \
+			-L$(shell llvm-config-3.3 --libdir) \
+			-lLLVM-3.3"
 
 clean:
 	rm -f fractal noise filter
