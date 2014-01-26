@@ -96,17 +96,18 @@ static void process_data(std::istream& codestream, const string& typesignature,
         symbols.add(i->first, i->second);
     }
 
-    typedef Real TranslateFunction(Real n);
+    typedef void TranslateFunction(Real in, Real* out);
     typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
             typesignature, typealiases);
     if (dump)
         func.dump();
 
-    Real d;
-    while (readnumber(d))
+    Real in;
+    while (readnumber(in))
     {
-		Real o = func(d);
-		render(std::cout, o);
+		Real out;
+		func(in, &out);
+		render(std::cout, out);
 		std::cout << "\n";
     }
 }
@@ -136,7 +137,7 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
         symbols.add(i->first, i->second);
     }
 
-    typedef void TranslateFunction(Real* out, Real* in);
+    typedef void TranslateFunction(Real* in, Real* out);
     typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
             typesignature, typealiases);
     if (dump)
@@ -158,7 +159,7 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
                 return;
             }
 
-        func(out, in);
+        func(in, out);
 
         for (unsigned i = 0; i < ovsize; i++)
 		{
@@ -358,11 +359,11 @@ int main(int argc, const char* argv[])
 
     string typesignature;
     if (ivsize == 0)
-        typesignature = "(n: real): (out: real)";
+        typesignature = "(in: real): (out: real)";
     else
     {
         std::stringstream s;
-        s << "(n: vector*" << ivsize << "): (out: vector*" << ovsize << ")";
+        s << "(in: vector*" << ivsize << "): (out: vector*" << ovsize << ")";
         typesignature = s.str();
     }
 

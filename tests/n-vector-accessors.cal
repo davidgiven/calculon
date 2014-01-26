@@ -1,3 +1,4 @@
 /// -i 4 -o 4 < 4vector.data
-[n.x, n.y, n.z, n.w]
+let out = [in.x, in.y, in.z, in.w];
+return
 

@@ -1,2 +1,3 @@
 /// -i 4 -o 4 < vectoraccess.data
-[n[n[0]], n[0,0], n[1,0], n[n[0], n[0]]]
+let out = [in[in[0]], in[0,0], in[1,0], in[in[0], in[0]]];
+return

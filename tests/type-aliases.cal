@@ -6,5 +6,6 @@ let mul(a: matrix, b: matrix): matrix =
 	 a[0,1]*b[0,0] + a[1,1]*b[0,1],
 	 a[0,1]*b[1,0] + a[1,1]*b[1,1]];
 	 
-mul(n, [1, 2, 3, 4])
+let out = mul(in, [1, 2, 3, 4]);
+return
 
