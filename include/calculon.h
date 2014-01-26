@@ -445,7 +445,7 @@ namespace Calculon
 
 			void generate_machine_code()
 			{
-//				_module->dump();
+				//_module->dump();
 				llvm::verifyFunction(*_function);
 
 				llvm::FunctionPassManager fpm(_module);

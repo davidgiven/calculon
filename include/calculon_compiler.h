@@ -136,16 +136,14 @@ public:
 		FunctionSymbol* functionsymbol = retain(new FunctionSymbol("<toplevel>",
 				arguments, returntype));
 
-		/* Create symbols and the LLVM type array for the function. */
+		/* Create symbols for the function. */
 
 		MultipleSymbolTable symboltable(globals);
-		vector<llvm::Type*> llvmtypes;
 		for (unsigned i=0; i<arguments.size(); i++)
 		{
 			VariableSymbol* symbol = arguments[i];
 			symbol->function = functionsymbol;
 			symboltable.add(symbol);
-			llvmtypes.push_back(symbol->type->llvm);
 		}
 
 		/* Compile the code to an AST. */
@@ -154,36 +152,8 @@ public:
 		ASTToplevel* ast = parse_toplevel(codelexer, functionsymbol, &symboltable);
 		ast->resolveVariables(*this);
 
-		/* Create the LLVM function itself. */
-
-		llvm::FunctionType* ft = llvm::FunctionType::get(
-				returntype->llvm, llvmtypes, false);
-
-		llvm::Function* f = llvm::Function::Create(ft,
-				llvm::Function::InternalLinkage,
-				"toplevel", module);
-		functionsymbol->function = f;
-
-		/* Bind the argument symbols to their LLVM values. */
-
-		{
-			int i = 0;
-			for (llvm::Function::arg_iterator ii = f->arg_begin(),
-					ee = f->arg_end(); ii != ee; ii++)
-			{
-				llvm::Value* v = ii;
-				VariableSymbol* symbol = arguments[i];
-
-				v->setName(symbol->name);
-				symbol->value = v;
-				i++;
-			}
-		}
-
 		/* Generate the IR code. */
 
-		llvm::BasicBlock* bb = llvm::BasicBlock::Create(context, "", f);
-		builder.SetInsertPoint(bb);
 		ast->codegen(*this);
 
 		return functionsymbol;
