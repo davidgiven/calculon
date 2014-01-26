@@ -29,6 +29,7 @@ let a = 1; (let b = 2; (let c = 3; (a+b+c)))
 If you prefer, it's possible to think of <code>;</code> as terminating the
 definition part of a let expression.
 
+
 <h3>How do I do loops efficiently?</h3>
 
 Calculon is a pure functional language and so doesn't have mutable variables.
@@ -71,6 +72,7 @@ f(n+1, g(accumulator)) + 1
 
 See <a href="../demo/fractal.cal">fractal.cal</a> for a real example.
 
+
 <h3>When I'm calling out to an external function, how do I know where I'm
 being called from?</h3>
 
@@ -92,6 +94,21 @@ thread_specific_ptr</a></code> class is probably the way to go here.)
 
 Alternatively, if you don't care about threading, you could just use a global
 variable.
+
+
+<h3>How do I do optional output parameters?</h3>
+
+Give them the same name as an input parameter. That way any output parameters
+which aren't set by the script will take their value from the input parameter.
+
+For example, this script:
+
+<verbatim>return</verbatim>
+
+...is an entirely valid implementation of this signature:
+
+<verbatim>(x:real, y:real, v:vector*5): (x:real, y:real, v:vector*5)</verbatim>
+
 
 <h2 class='comments-title'>Comments on this page</h2>
 <table class='comments' border='0'><tr>
