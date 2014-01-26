@@ -222,8 +222,6 @@ struct ASTFrame : public ASTNode
 {
 	SymbolTable* symbolTable;
 
-	using ASTNode::parent;
-
 	ASTFrame(const Position& position):
 		ASTNode(position),
 		symbolTable(NULL)
@@ -449,6 +447,102 @@ struct ASTFunctionBody : public ASTFrame
 	}
 };
 
+struct ASTToplevel : public ASTFunctionBody
+{
+	ToplevelSymbol* toplevel;
+
+	using ASTNode::position;
+	using ASTFrame::symbolTable;
+	using ASTFunctionBody::function;
+	using ASTFunctionBody::body;
+
+	ASTToplevel(const Position& position, ToplevelSymbol* toplevel,
+			ASTNode* body, SymbolTable* st):
+		ASTFunctionBody(position, toplevel, body),
+		toplevel(toplevel)
+	{
+		symbolTable = st;
+	}
+
+	void resolveVariables(Compiler& compiler)
+	{
+		body->resolveVariables(compiler);
+	}
+
+	llvm::Value* codegen(Compiler& compiler)
+	{
+		llvm::Value* v = body->codegen(compiler);
+		if (v)
+		{
+			std::stringstream s;
+			s << "toplevel code must end in a 'return' statement";
+			throw CompilationException(position.formatError(s.str()));
+		}
+		compiler.builder.CreateRetVoid();
+
+		return NULL;
+	}
+};
+
+struct ASTReturn : public ASTNode
+{
+	using ASTNode::position;
+	using ASTNode::getFunction;
+	using ASTNode::getFrame;
+
+	ASTReturn(const Position& position):
+		ASTNode(position)
+	{
+	}
+
+	void resolveVariables(Compiler& compiler)
+	{
+		ToplevelSymbol* toplevel = getFunction()->isToplevel();
+		if (!toplevel)
+		{
+			std::stringstream s;
+			s << "'return' can only be used in top level code";
+			throw CompilationException(position.formatError(s.str()));
+		}
+	}
+
+	llvm::Value* codegen(Compiler& compiler)
+	{
+		ToplevelSymbol* toplevel = getFunction()->isToplevel();
+		assert(toplevel); /* checked in resolveVariables */
+
+		/* Find the pointer to the output block. */
+
+		llvm::Function* f = toplevel->function;
+		
+		/* Copy out output values. */
+
+		SymbolTable* symbolTable = getFrame()->symbolTable;
+		for (unsigned i=0; i<toplevel->returns.size(); i++)
+		{
+			VariableSymbol* outsym = toplevel->returns[i]->isVariable();
+			assert(outsym);
+			llvm::Value* ptr = outsym->value;
+
+			Symbol* insym = symbolTable->resolve(outsym->name);
+			if (!insym)
+			{
+				std::stringstream s;
+				s << "output value '" << outsym->name << "' was not set";
+				throw CompilationException(position.formatError(s.str()));
+			}
+
+			llvm::Value* value = insym->isValued()->emitValue(compiler);
+			if (outsym->type->asVector())
+				outsym->type->asVector()->storeToArray(value, ptr);
+			else
+				compiler.builder.CreateStore(value, ptr);
+		}
+
+		return NULL;
+	}
+};
+
 struct ASTDefineFunction : public ASTFrame
 {
 	FunctionSymbol* function;
@@ -644,16 +738,5 @@ struct ASTCondition : public ASTNode
 	}
 };
 
-struct ASTToplevel : public ASTFunctionBody
-{
-	using ASTFrame::symbolTable;
-
-	ASTToplevel(const Position& position, FunctionSymbol* symbol,
-			ASTNode* body, SymbolTable* st):
-		ASTFunctionBody(position, symbol, body)
-	{
-		symbolTable = st;
-	}
-};
 
 #endif

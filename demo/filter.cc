@@ -84,31 +84,42 @@ static void process_data(std::istream& codestream, const string& typesignature,
 
     typename Compiler::StandardSymbolTable symbols;
 
-    for (map<string, double>::const_iterator i = realvariables.begin(),
-            e = realvariables.end(); i != e; i++)
-    {
-        symbols.add(i->first, i->second);
-    }
+	try
+	{
+		for (map<string, double>::const_iterator i = realvariables.begin(),
+				e = realvariables.end(); i != e; i++)
+		{
+			symbols.add(i->first, i->second);
+		}
 
-    for (map<string, vector<double> >::const_iterator i = vectorvariables.begin(),
-            e = vectorvariables.end(); i != e; i++)
-    {
-        symbols.add(i->first, i->second);
-    }
+		for (map<string, vector<double> >::const_iterator i = vectorvariables.begin(),
+				e = vectorvariables.end(); i != e; i++)
+		{
+			symbols.add(i->first, i->second);
+		}
 
-    typedef Real TranslateFunction(Real n);
-    typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
-            typesignature, typealiases);
-    if (dump)
-        func.dump();
+		typedef void TranslateFunction(Real in, Real* out);
+		typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
+				typesignature, typealiases);
+		if (dump)
+			func.dump();
 
-    Real d;
-    while (readnumber(d))
-    {
-		Real o = func(d);
-		render(std::cout, o);
-		std::cout << "\n";
-    }
+		Real in;
+		while (readnumber(in))
+		{
+			Real out;
+			func(in, &out);
+			render(std::cout, out);
+			std::cout << "\n";
+		}
+	}
+	catch (const typename Compiler::CompilationException& e)
+	{
+		std::cerr << "Calculon compilation error: "
+			<< e.what()
+			<< "\n";
+		exit(1);
+	}
 }
 
 template <typename Settings>
@@ -124,50 +135,60 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
 
     typename Compiler::StandardSymbolTable symbols;
 
-    for (map<string, double>::const_iterator i = realvariables.begin(),
-            e = realvariables.end(); i != e; i++)
-    {
-        symbols.add(i->first, i->second);
-    }
-
-    for (map<string, vector<double> >::const_iterator i = vectorvariables.begin(),
-            e = vectorvariables.end(); i != e; i++)
-    {
-        symbols.add(i->first, i->second);
-    }
-
-    typedef void TranslateFunction(Real* out, Real* in);
-    typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
-            typesignature, typealiases);
-    if (dump)
-        func.dump();
-
-	BigVector istorage;
-	Real* in = &istorage.m[0];
-
-	BigVector ostorage;
-	Real* out = &ostorage.m[0];
-
-    for (;;)
-    {
-        for (unsigned i = 0; i < ivsize; i++)
-            if (!readnumber(in[i]))
-            {
-                if (i != 0)
-                    std::cerr << "filter: found partial row, aborting\n";
-                return;
-            }
-
-        func(out, in);
-
-        for (unsigned i = 0; i < ovsize; i++)
+	try
+	{
+		for (map<string, double>::const_iterator i = realvariables.begin(),
+				e = realvariables.end(); i != e; i++)
 		{
-			Real o = out[i];
-			render(std::cout, o);
-            std::cout << " ";
+			symbols.add(i->first, i->second);
 		}
-        std::cout << "\n";
-    }
+
+		for (map<string, vector<double> >::const_iterator i = vectorvariables.begin(),
+				e = vectorvariables.end(); i != e; i++)
+		{
+			symbols.add(i->first, i->second);
+		}
+
+		typedef void TranslateFunction(Real* in, Real* out);
+		typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
+				typesignature, typealiases);
+		if (dump)
+			func.dump();
+
+		BigVector istorage;
+		Real* in = &istorage.m[0];
+
+		BigVector ostorage;
+		Real* out = &ostorage.m[0];
+
+		for (;;)
+		{
+			for (unsigned i = 0; i < ivsize; i++)
+				if (!readnumber(in[i]))
+				{
+					if (i != 0)
+						std::cerr << "filter: found partial row, aborting\n";
+					return;
+				}
+
+			func(in, out);
+
+			for (unsigned i = 0; i < ovsize; i++)
+			{
+				Real o = out[i];
+				render(std::cout, o);
+				std::cout << " ";
+			}
+			std::cout << "\n";
+		}
+	}
+	catch (const typename Compiler::CompilationException& e)
+	{
+		std::cerr << "Calculon compilation error: "
+			<< e.what()
+			<< "\n";
+		exit(1);
+	}
 }
 
 int main(int argc, const char* argv[])
@@ -238,7 +259,7 @@ int main(int argc, const char* argv[])
                 e = variableparams.end(); i != e; i++)
         {
             const string& definition = *i;
-            int equals = definition.find('=');
+            string::size_type equals = definition.find('=');
             if (equals == string::npos)
             {
                 std::cerr << "filter: malformed variable definition (use -D NAME=REAL)\n"
@@ -267,7 +288,7 @@ int main(int argc, const char* argv[])
                 e = variableparams.end(); i != e; i++)
         {
             const string& definition = *i;
-            int equals = definition.find('=');
+            string::size_type equals = definition.find('=');
             if (equals == string::npos)
             {
                 std::cerr << "filter: malformed variable definition (use -V NAME=REAL,REAL...)\n"
@@ -307,7 +328,7 @@ int main(int argc, const char* argv[])
                 e = params.end(); i != e; i++)
         {
             const string& definition = *i;
-            int equals = definition.find('=');
+            string::size_type equals = definition.find('=');
             if (equals == string::npos)
             {
                 std::cerr << "filter: malformed type alias definition (use -T NAME=NAME)\n"
@@ -358,11 +379,11 @@ int main(int argc, const char* argv[])
 
     string typesignature;
     if (ivsize == 0)
-        typesignature = "(n: real): real";
+        typesignature = "(in: real): (out: real)";
     else
     {
         std::stringstream s;
-        s << "(n: vector*" << ivsize << "): vector*" << ovsize;
+        s << "(in: vector*" << ivsize << "): (out: vector*" << ovsize << ")";
         typesignature = s.str();
     }
 

@@ -1,4 +1,5 @@
 /// -i 1 -o 4 -Vdata=1,2,3,4 < 1vector.data
 
-let x = n.x;
-[x+data[0], x+data[1], x+data[2], x+data[3]]
+let x = in.x;
+let out = [x+data[0], x+data[1], x+data[2], x+data[3]];
+return

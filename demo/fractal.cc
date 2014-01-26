@@ -68,9 +68,9 @@ int main(int argc, const char* argv[])
 
 	/* Load the Calculon function to generate the pixels. */
 
-	typedef Real FractalFunction(Real r, Real i);
+	typedef Real FractalFunction(Real r, Real i, Real* intensity);
 	std::ifstream code(scriptfilename.c_str());
-	Compiler::Program<FractalFunction> func(symbols, code, "(r,i)");
+	Compiler::Program<FractalFunction> func(symbols, code, "(r:real, i:real): (intensity:real)");
 	if (dump)
 		func.dump();
 
@@ -88,9 +88,10 @@ int main(int argc, const char* argv[])
 		{
 			Real r = minr + rw*(x/width);
 			Real i = mini + rh*(y/height);
+			Real intensity;
 
-			Real result = func(r, i);
-			outputfile << (int)(result * 65535.0) << "\n";
+			func(r, i, &intensity);
+			outputfile << (int)(intensity * 65535.0) << "\n";
 		}
 	}
 

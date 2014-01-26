@@ -123,40 +123,125 @@ public:
 	}
 
 public:
-	FunctionSymbol* compile(std::istream& signaturestream, std::istream& codestream,
+	ToplevelSymbol* compile(std::istream& signaturestream, std::istream& codestream,
 			SymbolTable* globals)
 	{
 		vector<VariableSymbol*> arguments;
-		Type* returntype;
+		vector<VariableSymbol*> returns;
 
 		L signaturelexer(signaturestream);
-		parse_functionsignature(signaturelexer, arguments, returntype);
+		parse_toplevelsignature(signaturelexer, arguments, returns);
 		expect_eof(signaturelexer);
 
-		FunctionSymbol* functionsymbol = retain(new FunctionSymbol("<toplevel>",
-				arguments, returntype));
+		/* Create the special symbol which represents the toplevel function. */
 
-		/* Create symbols for the function. */
-
-		MultipleSymbolTable symboltable(globals);
-		for (unsigned i=0; i<arguments.size(); i++)
-		{
-			VariableSymbol* symbol = arguments[i];
-			symbol->function = functionsymbol;
-			symboltable.add(symbol);
-		}
+		ToplevelSymbol* toplevelsymbol = retain(new ToplevelSymbol("<toplevel>",
+				arguments, returns));
+		toplevelsymbol->createReturnStructure(*this);
 
 		/* Compile the code to an AST. */
 
 		L codelexer(codestream);
-		ASTToplevel* ast = parse_toplevel(codelexer, functionsymbol, &symboltable);
-		ast->resolveVariables(*this);
+		MultipleSymbolTable symboltable(globals);
+		ASTToplevel* ast = parse_toplevel(codelexer, toplevelsymbol, &symboltable);
+
+		/* Create the LLVM function itself. */
+
+		llvm::FunctionType* ft = llvm::FunctionType::get(
+				returntype->llvm, llvmtypes, false);
+
+		llvm::Function* f = llvm::Function::Create(ft,
+				llvm::Function::InternalLinkage,
+				"toplevel", module);
+		functionsymbol->function = f;
+
+		/* Bind the argument symbols to their LLVM values. */
+
+		{
+			int i = 0;
+			for (llvm::Function::arg_iterator ii = f->arg_begin(),
+					ee = f->arg_end(); ii != ee; ii++)
+			{
+				llvm::Value* v = ii;
+				VariableSymbol* symbol = arguments[i];
+
+				v->setName(symbol->name);
+				symbol->value = v;
+				i++;
+			}
+		}
+
+		/* Ensure we've reached the end of the file. */
+
+		expect(codelexer, L::ENDOFFILE);
+
+		/* Create the interface function from this signature. */
+
+		vector<llvm::Type*> externaltypes;
+
+		for (unsigned i=0; i<arguments.size(); i++)
+		{
+			VariableSymbol* symbol = arguments[i];
+			externaltypes.push_back(symbol->type->llvmx);
+		}
+
+		for (unsigned i=0; i<returns.size(); i++)
+		{
+			VariableSymbol* symbol = returns[i];
+			llvm::Type* t = symbol->type->llvmx;
+			if (!t->isPointerTy())
+				t = t->getPointerTo();
+			externaltypes.push_back(t);
+		}
+
+		llvm::FunctionType* ft = llvm::FunctionType::get(
+				llvm::Type::getVoidTy(context),
+				externaltypes, false);
+
+		toplevelsymbol->function = llvm::Function::Create(ft,
+				llvm::Function::ExternalLinkage,
+				"Entrypoint", module);
+
+		llvm::BasicBlock* bb = llvm::BasicBlock::Create(context, "entry",
+			toplevelsymbol->function);
+		builder.SetInsertPoint(bb);
+
+		/* Marshal any input parameters to internal types. */
+
+		llvm::Function::arg_iterator ii = toplevelsymbol->function->arg_begin();
+		for (unsigned i=0; i<arguments.size(); i++)
+		{
+			llvm::Value* v = ii;
+			VariableSymbol* symbol = arguments[i];
+
+			v->setName(symbol->name);
+			if (symbol->type->asVector())
+				v = symbol->type->asVector()->loadFromArray(v);
+			symbol->value = v;
+
+			symboltable.add(symbol);
+
+			ii++;
+		}
+
+		/* ...and remember the LLVM values where the output parameters will be
+		 * stored. */
+
+		for (unsigned i=0; i<returns.size(); i++)
+		{
+			llvm::Value* v = ii;
+			VariableSymbol* symbol = returns[i];
+
+			v->setName(symbol->name);
+			symbol->value = v;
+		}
 
 		/* Generate the IR code. */
 
+		ast->resolveVariables(*this);
 		ast->codegen(*this);
 
-		return functionsymbol;
+		return toplevelsymbol;
 	}
 
 private:
@@ -261,8 +346,7 @@ private:
 		}
 	}
 
-	void parse_functionsignature(L& lexer, vector<VariableSymbol*>& arguments,
-			Type*& returntype)
+	void parse_paramlist(L& lexer, vector<VariableSymbol*>& list)
 	{
 		expect(lexer, L::OPENPAREN);
 
@@ -277,14 +361,28 @@ private:
 				type = realType;
 
 			VariableSymbol* symbol = retain(new VariableSymbol(id, type));
-			arguments.push_back(symbol);
+			list.push_back(symbol);
 			parse_list_separator(lexer);
 		}
 
 		expect(lexer, L::CLOSEPAREN);
+	}
+
+	void parse_functionsignature(L& lexer, vector<VariableSymbol*>& arguments,
+			Type*& returntype)
+	{
+		parse_paramlist(lexer, arguments);
 		parse_typespec(lexer, returntype);
 		if (!returntype)
 			returntype = realType;
+	}
+
+	void parse_toplevelsignature(L& lexer, vector<VariableSymbol*>& arguments,
+			vector<VariableSymbol*>& returns)
+	{
+		parse_paramlist(lexer, arguments);
+		expect(lexer, L::COLON);
+		parse_paramlist(lexer, returns);
 	}
 
 	ASTNode* parse_variable_or_function_call(L& lexer)
@@ -324,6 +422,8 @@ private:
 			else if (id == "NaN")
 				return retain(new ASTConstant(position,
 						std::numeric_limits<Real>::quiet_NaN()));
+			else if (id == "return")
+				return retain(new ASTReturn(position));
 			else
 				return retain(new ASTVariable(position, id));
 		}
@@ -611,12 +711,12 @@ private:
 		}
 	}
 
-	ASTToplevel* parse_toplevel(L& lexer, FunctionSymbol* symbol,
+	ASTToplevel* parse_toplevel(L& lexer, ToplevelSymbol* toplevel,
 			SymbolTable* symboltable)
 	{
 		Position position = lexer.position();
 		ASTNode* body = parse_expression(lexer);
-		return retain(new ASTToplevel(position, symbol, body, symboltable));
+		return retain(new ASTToplevel(position, toplevel, body, symboltable));
 	}
 };
 

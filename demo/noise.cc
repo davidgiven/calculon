@@ -17,6 +17,7 @@ namespace po = boost::program_options;
 
 typedef Calculon::Instance<Calculon::RealIsFloat> Compiler;
 typedef Compiler::Real Real;
+typedef Compiler::Vector<2> Vector2;
 typedef Compiler::Vector<3> Vector3;
 
 Compiler::StandardSymbolTable symbols;
@@ -69,9 +70,9 @@ int main(int argc, const char* argv[])
 
 	/* Load the Calculon function to generate the pixels. */
 
-	typedef void FractalFunction(Vector3* result, Real r, Real i);
+	typedef void FractalFunction(Vector2* pos, Vector3* colour);
 	std::ifstream code(scriptfilename.c_str());
-	Compiler::Program<FractalFunction> func(symbols, code, "(x,y):vector");
+	Compiler::Program<FractalFunction> func(symbols, code, "(pos:vector*2): (colour: vector*3)");
 	if (dump)
 		func.dump();
 
@@ -87,12 +88,15 @@ int main(int argc, const char* argv[])
 			Real xx = -1 + x * (2/(Real)width);
 			Real yy = -1 + y * (2/(Real)height);
 
-			Vector3 result;
-			func(&result, xx, yy);
+			Vector2 pos;
+			Vector3 colour;
+			pos.x = xx;
+			pos.y = yy;
+			func(&pos, &colour);
 
-			outputfile << (int)(result.x * 65535.0) << " "
-					   << (int)(result.y * 65535.0) << " "
-					   << (int)(result.z * 65535.0) << "\n";
+			outputfile << (int)(colour.x * 65535.0) << " "
+					   << (int)(colour.y * 65535.0) << " "
+					   << (int)(colour.z * 65535.0) << "\n";
 		}
 	}
 

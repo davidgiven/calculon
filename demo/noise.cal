@@ -1,5 +1,8 @@
 /* Produces an RGB colour vector (each component scaled from 0..1) for a
- * particular location given by (x, y).
+ * particular location.
+ *
+ * pos: vector*2     input location
+ * colour: vector*3  output colour
  *
  * perlin(V) produces Perlin noise for a particular vector location.
  */
@@ -7,7 +10,8 @@
 let positive(x) = if x > 0 then x else 0;
 let max(x) = if x > 1 then 1 else x;
 let mp(x) = max(positive(x));
-let r = perlin([x*4, y*4, 0]);
-let g = perlin([x*4.1, y*3.9, 0]);
-let b = perlin([x*3.9, y*4.1, 0]);
-[mp(r), mp(g), mp(b)]
+let r = perlin([pos.x*4, pos.y*4, 0]);
+let g = perlin([pos.x*4.1, pos.y*3.9, 0]);
+let b = perlin([pos.x*3.9, pos.y*4.1, 0]);
+let colour = [mp(r), mp(g), mp(b)];
+return

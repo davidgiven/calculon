@@ -25,13 +25,13 @@ std::ifstream scriptSource("script.cal");
 /* Prototype the function that the script represents, and compile the
  * script. We pass in the Calculon type signature of the function so the
  * compiler knows what parameters we're using */
-typedef Real ScriptFunction(Real x, Real y);
+typedef void ScriptFunction(Real x, Real y, Real* result);
 Compiler::Program<ScriptFunction> function(symbols, code,
-    "(x:real, y:real): real");
+    "(x:real, y:real): (result:real)");
      
 /* Call the function */
 
-Real result = function(1, -1);
+function(1, -1, &result);
 </verbatim>
 
 ...and that's pretty much it. <code>function()</code> may be called as
@@ -90,7 +90,7 @@ map<string, string> typeAliases;
   typeAliases["matrix"] = "vector*4";
 #endif
 Compiler::Program<ScriptFunction> function(symbols, code,
-    "(x:matrix, y:matrix): real", typeAliases);
+    "(x:matrix, y:matrix): (result:real)", typeAliases);
 </verbatim>
 
 ...allows this script to work with either configuration:
@@ -111,14 +111,16 @@ passed by pointer. If the Calculon script returns a vector, then an extra
 initial parameter is added which points to where the return parameter should
 be written.
 
+Return parameters are passed <i>last</i>, and always by pointer.
+
 For example:
 
 <verbatim>
-/* f1(x: real, y: real, v: vector*3): real */
-typedef Real f1(Real x, Real y, Compiler::Vector<3>* v);
+/* f1(x: real, y: real, v: vector*3): (result: real) */
+typedef void f1(Real x, Real y, Compiler::Vector<3>* v, Real* result);
 
-/* f2(x: real, y: real, v: vector*3): vector*2 */
-typedef void f2(Compiler::Vector<2>* result, Real x, Real y, Compiler::Vector<3>* v);
+/* f2(x: real, y: real, v: vector*3): (result: vector*2) */
+typedef void f2(Real x, Real y, Compiler::Vector<3>* v, Compiler::Vector<2>* result);
 </verbatim>
 
 To call such a function, create some Vector objects somewhere and pass
@@ -128,7 +130,7 @@ their pointers in. The stack will do fine.
 Compiler::Vector<2> result;
 Compiler::Vector<3> v;
 v.x = 0; v.y = 1; v.z = 2;
-f2(&result, 7, 8, &v);
+f2(7, 8, &v, &result);
 </verbatim>
 
 <h3>Registering functions</h3>
@@ -165,7 +167,10 @@ specify <code>real</code>, ensure that your external function uses
 for Calculon to detect whether the function signature is correct or not, and
 it just trusts you. If you get it wrong, you may get garbage data or crashes.
 
-Vectors are passed in and out in the same way as for Calculon scripts.
+Only one value may be returned. Reals (and doubles and floats) are returned
+<i>inline</i> --- this is different from the calling convention used for
+Calculon scripts.  Vectors are returned by pointer via an extra parameter, as
+for Calculon scripts.
 
 Note carefully! Calculon is designed for scripts that have <b>no side
 effects</b>. If you call out to a function which does something... well, it'll
@@ -199,7 +204,7 @@ changed. Use input parameters if you need to do this.
 
 The Calculon library uses the STL and iostreams. It does use some Boost, but
 does not use C++11, for maximum compatibility. Fairly obviously, it uses
-LLVM 3.2. It may or may not work with other versions of LLVM. (If you need it
+LLVM 3.3. It may or may not work with other versions of LLVM. (If you need it
 to work on another version, please <a href="mailto:dg@cowlark.com">get in
 touch</a>.)
 
@@ -207,7 +212,7 @@ The supplied <a href="../Makefile">sample Makefile</a> shows the recommended
 way to build programs that use Calculon, but the short summary is:
 
 <verbatim>
-g++ -I$(shell llvm-config-3.2 --includedir) -lLLVM-3.2 program.cc
+g++ -I$(shell llvm-config-3.3 --includedir) -lLLVM-3.3 program.cc
 </verbatim>
 
 Calculon works with both gcc and clang++. I haven't tried with Visual

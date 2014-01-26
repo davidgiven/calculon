@@ -5,13 +5,20 @@
 The Calculon language is extremely simple. There are three types, <code>real</code>,
 <code>vector</code> and <code>boolean</code>. Everything is explicitly typed
 (except that if you omit a type specifier, you get <code>real</code>.
-Everything is an expression, including entire scripts. Variables are immutable
-and looping must be done via recursion.
+Everything is an expression. Variables are immutable and looping must be done
+via recursion.
+
+The simplest way to think about a Calculon script is as a series of let
+statements followed by a return, but the details are a bit more complicated
+than that.
 
 The following list describes the major syntactic elements:
 
   *  <code>0</code> is a real constant.
   *  <code>true</code> or <code>false</code> are boolean constants.
+  *  <code>return</code> must be the last keyword in a Calculon script. When
+     seen, any output parameters are set and the scripts exit. You cannot
+	 use this inside a function.
   *  <code>&#91;0, 1, 2]</code> is a vector. The elements must be reals (but
      need not be constant). You may supply any positive, non-zero number of
      elements. The size of a vector is part of its type; vectors of different
@@ -71,6 +78,20 @@ The order of precedence, from highest to lowest, is: unary operators,
 multiplication and division, addition and subtraction, comparisons, boolean
 operators, <code>if</code>...<code>then</code>...<code>else</code>,
 <code>let</code>.
+
+The type signatures used for Calculon <i>scripts</i> is subtly different from
+the type signatures used for Calculon <i>functions</i>. Functions may return
+only one value, and their signatures look like this:
+
+<verbatim>(x:real, y:real): vector*2</verbatim>
+
+Scripts may return any number of parameters, and their signatures look like
+this:
+
+<verbatim>(x:real, y:real): (v:vector*2, length:real)</verbatim>
+
+It is perfectly acceptable for output parameters to have the same name as an
+input parameter (or a global variable).
 
 Most of the standard maths library is bound. They all behave exactly like
 their Posix namesakes. As of writing, the list consists of:

@@ -11,6 +11,6 @@ clean=$TEST.clean
 dirty=$TEST.$PRECISION.dirty
 
 cmd=$(head -1 $TEST.cal | sed -e 's!^///!!')
-eval ../demo/filter -f $TEST.cal $cmd > $dirty
-(diff -uN $dirty $clean && rm $dirty ) || (echo "TEST FAILED" && exit 1)
+eval ../demo/filter -f $TEST.cal $cmd > $dirty 2>&1
+(diff -uN $dirty $clean && rm $dirty ) || (echo "TEST FAILED")
 

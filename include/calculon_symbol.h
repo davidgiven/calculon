@@ -13,8 +13,8 @@
 class CallableSymbol;
 class ValuedSymbol;
 class VariableSymbol;
-class VariableSymbol;
 class FunctionSymbol;
+class ToplevelSymbol;
 
 class Symbol : public Object
 {
@@ -47,6 +47,11 @@ public:
 	}
 
 	virtual FunctionSymbol* isFunction()
+	{
+		return NULL;
+	}
+
+	virtual ToplevelSymbol* isToplevel()
 	{
 		return NULL;
 	}
@@ -180,7 +185,8 @@ public:
 
 		std::stringstream s;
 		s << "call to parameter " << index << " of function '" << name
-				<< "' with wrong type; got " << at->name;
+				<< "' with wrong type; got " << at->name
+				<< " but should have " << type->name;
 		throw CompilationException(state.position.formatError(s.str()));
 	}
 
@@ -302,6 +308,49 @@ public:
 
 };
 
+class ToplevelSymbol : public FunctionSymbol
+{
+public:
+	const vector<VariableSymbol*> returns;
+	llvm::Type* returnStructureType;
+
+	using FunctionSymbol::function;
+
+public:
+	ToplevelSymbol(const string& name, const vector<VariableSymbol*>& arguments,
+			const vector<VariableSymbol*>& returns):
+		FunctionSymbol(name, arguments, NULL),
+		returns(returns),
+		returnStructureType(NULL)
+	{
+	}
+
+	void createReturnStructure(CompilerState& state)
+	{
+		/* Create the LLVM type used for the return values. */
+
+		vector<llvm::Type*> returntypes;
+		for (unsigned i=0; i<returns.size(); i++)
+		{
+			VariableSymbol* symbol = returns[i];
+			returntypes.push_back(symbol->type->llvm);
+		}
+		returnStructureType = llvm::StructType::create(returntypes, "returnblock");
+	}
+
+	llvm::Value* emitCall(CompilerState& state,
+			const vector<llvm::Value*>& parameters)
+	{
+		assert(function);
+		return state.builder.CreateCall(function, parameters);
+	}
+
+	ToplevelSymbol* isToplevel()
+	{
+		return this;
+	}
+};
+
 class BitcodeSymbol : public CallableSymbol
 {
 	int arguments;
@@ -399,22 +448,7 @@ public:
 		Type* returntype = lookup_type(state, returntypename);
 		llvm::Type* externalreturntype = returntype->llvmx;
 
-		/* If we're returning a vector, insert the return pointer now.
-		 */
-
-		if (returntype->asVector())
-		{
-			llvm::Value* p = state.builder.CreateAlloca(
-					returntype->asVector()->llvm,
-					llvm::ConstantInt::get(state.intType, 1));
-
-			llvmvalues.push_back(p);
-			llvmtypes.push_back(p->getType());
-
-			externalreturntype = llvm::Type::getVoidTy(state.context);
-		}
-
-		/* Convert and add any other parameters. */
+		/* Convert and add ordinary parameters. */
 
 		while (pi != parameters.end())
 		{
@@ -438,6 +472,21 @@ public:
 
 			i++;
 			pi++;
+		}
+
+		/* If we're returning a vector, insert the return pointer at the end.
+		 */
+
+		if (returntype->asVector())
+		{
+			llvm::Value* p = state.builder.CreateAlloca(
+					returntype->asVector()->llvm,
+					llvm::ConstantInt::get(state.intType, 1));
+
+			llvmvalues.push_back(p);
+			llvmtypes.push_back(p->getType());
+
+			externalreturntype = llvm::Type::getVoidTy(state.context);
 		}
 
 		llvm::FunctionType* ft = llvm::FunctionType::get(

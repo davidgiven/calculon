@@ -2,4 +2,5 @@
 
 let dot(a: vector*3, b: vector*3) = (a*b).sum;
 
-[dot(n, n)]
+let out = [dot(in, in)];
+return
