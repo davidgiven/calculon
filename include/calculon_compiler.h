@@ -137,39 +137,12 @@ public:
 
 		ToplevelSymbol* toplevelsymbol = retain(new ToplevelSymbol("<toplevel>",
 				arguments, returns));
-		toplevelsymbol->createReturnStructure(*this);
 
 		/* Compile the code to an AST. */
 
 		L codelexer(codestream);
 		MultipleSymbolTable symboltable(globals);
 		ASTToplevel* ast = parse_toplevel(codelexer, toplevelsymbol, &symboltable);
-
-		/* Create the LLVM function itself. */
-
-		llvm::FunctionType* ft = llvm::FunctionType::get(
-				returntype->llvm, llvmtypes, false);
-
-		llvm::Function* f = llvm::Function::Create(ft,
-				llvm::Function::InternalLinkage,
-				"toplevel", module);
-		functionsymbol->function = f;
-
-		/* Bind the argument symbols to their LLVM values. */
-
-		{
-			int i = 0;
-			for (llvm::Function::arg_iterator ii = f->arg_begin(),
-					ee = f->arg_end(); ii != ee; ii++)
-			{
-				llvm::Value* v = ii;
-				VariableSymbol* symbol = arguments[i];
-
-				v->setName(symbol->name);
-				symbol->value = v;
-				i++;
-			}
-		}
 
 		/* Ensure we've reached the end of the file. */
 

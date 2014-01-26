@@ -312,7 +312,6 @@ class ToplevelSymbol : public FunctionSymbol
 {
 public:
 	const vector<VariableSymbol*> returns;
-	llvm::Type* returnStructureType;
 
 	using FunctionSymbol::function;
 
@@ -320,29 +319,14 @@ public:
 	ToplevelSymbol(const string& name, const vector<VariableSymbol*>& arguments,
 			const vector<VariableSymbol*>& returns):
 		FunctionSymbol(name, arguments, NULL),
-		returns(returns),
-		returnStructureType(NULL)
+		returns(returns)
 	{
-	}
-
-	void createReturnStructure(CompilerState& state)
-	{
-		/* Create the LLVM type used for the return values. */
-
-		vector<llvm::Type*> returntypes;
-		for (unsigned i=0; i<returns.size(); i++)
-		{
-			VariableSymbol* symbol = returns[i];
-			returntypes.push_back(symbol->type->llvm);
-		}
-		returnStructureType = llvm::StructType::create(returntypes, "returnblock");
 	}
 
 	llvm::Value* emitCall(CompilerState& state,
 			const vector<llvm::Value*>& parameters)
 	{
-		assert(function);
-		return state.builder.CreateCall(function, parameters);
+		assert(false);
 	}
 
 	ToplevelSymbol* isToplevel()
