@@ -84,32 +84,42 @@ static void process_data(std::istream& codestream, const string& typesignature,
 
     typename Compiler::StandardSymbolTable symbols;
 
-    for (map<string, double>::const_iterator i = realvariables.begin(),
-            e = realvariables.end(); i != e; i++)
-    {
-        symbols.add(i->first, i->second);
-    }
+	try
+	{
+		for (map<string, double>::const_iterator i = realvariables.begin(),
+				e = realvariables.end(); i != e; i++)
+		{
+			symbols.add(i->first, i->second);
+		}
 
-    for (map<string, vector<double> >::const_iterator i = vectorvariables.begin(),
-            e = vectorvariables.end(); i != e; i++)
-    {
-        symbols.add(i->first, i->second);
-    }
+		for (map<string, vector<double> >::const_iterator i = vectorvariables.begin(),
+				e = vectorvariables.end(); i != e; i++)
+		{
+			symbols.add(i->first, i->second);
+		}
 
-    typedef void TranslateFunction(Real in, Real* out);
-    typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
-            typesignature, typealiases);
-    if (dump)
-        func.dump();
+		typedef void TranslateFunction(Real in, Real* out);
+		typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
+				typesignature, typealiases);
+		if (dump)
+			func.dump();
 
-    Real in;
-    while (readnumber(in))
-    {
-		Real out;
-		func(in, &out);
-		render(std::cout, out);
-		std::cout << "\n";
-    }
+		Real in;
+		while (readnumber(in))
+		{
+			Real out;
+			func(in, &out);
+			render(std::cout, out);
+			std::cout << "\n";
+		}
+	}
+	catch (const typename Compiler::CompilationException& e)
+	{
+		std::cerr << "Calculon compilation error: "
+			<< e.what()
+			<< "\n";
+		exit(1);
+	}
 }
 
 template <typename Settings>
@@ -125,50 +135,60 @@ static void process_data_rows(std::istream& codestream, const string& typesignat
 
     typename Compiler::StandardSymbolTable symbols;
 
-    for (map<string, double>::const_iterator i = realvariables.begin(),
-            e = realvariables.end(); i != e; i++)
-    {
-        symbols.add(i->first, i->second);
-    }
-
-    for (map<string, vector<double> >::const_iterator i = vectorvariables.begin(),
-            e = vectorvariables.end(); i != e; i++)
-    {
-        symbols.add(i->first, i->second);
-    }
-
-    typedef void TranslateFunction(Real* in, Real* out);
-    typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
-            typesignature, typealiases);
-    if (dump)
-        func.dump();
-
-	BigVector istorage;
-	Real* in = &istorage.m[0];
-
-	BigVector ostorage;
-	Real* out = &ostorage.m[0];
-
-    for (;;)
-    {
-        for (unsigned i = 0; i < ivsize; i++)
-            if (!readnumber(in[i]))
-            {
-                if (i != 0)
-                    std::cerr << "filter: found partial row, aborting\n";
-                return;
-            }
-
-        func(in, out);
-
-        for (unsigned i = 0; i < ovsize; i++)
+	try
+	{
+		for (map<string, double>::const_iterator i = realvariables.begin(),
+				e = realvariables.end(); i != e; i++)
 		{
-			Real o = out[i];
-			render(std::cout, o);
-            std::cout << " ";
+			symbols.add(i->first, i->second);
 		}
-        std::cout << "\n";
-    }
+
+		for (map<string, vector<double> >::const_iterator i = vectorvariables.begin(),
+				e = vectorvariables.end(); i != e; i++)
+		{
+			symbols.add(i->first, i->second);
+		}
+
+		typedef void TranslateFunction(Real* in, Real* out);
+		typename Compiler::template Program<TranslateFunction> func(symbols, codestream,
+				typesignature, typealiases);
+		if (dump)
+			func.dump();
+
+		BigVector istorage;
+		Real* in = &istorage.m[0];
+
+		BigVector ostorage;
+		Real* out = &ostorage.m[0];
+
+		for (;;)
+		{
+			for (unsigned i = 0; i < ivsize; i++)
+				if (!readnumber(in[i]))
+				{
+					if (i != 0)
+						std::cerr << "filter: found partial row, aborting\n";
+					return;
+				}
+
+			func(in, out);
+
+			for (unsigned i = 0; i < ovsize; i++)
+			{
+				Real o = out[i];
+				render(std::cout, o);
+				std::cout << " ";
+			}
+			std::cout << "\n";
+		}
+	}
+	catch (const typename Compiler::CompilationException& e)
+	{
+		std::cerr << "Calculon compilation error: "
+			<< e.what()
+			<< "\n";
+		exit(1);
+	}
 }
 
 int main(int argc, const char* argv[])
