@@ -145,6 +145,10 @@ public:
 		MultipleSymbolTable symboltable(globals);
 		ASTToplevel* ast = parse_toplevel(codelexer, toplevelsymbol, &symboltable);
 
+		/* Ensure we've reached the end of the file. */
+
+		expect(codelexer, L::ENDOFFILE);
+
 		/* Create the interface function from this signature. */
 
 		vector<llvm::Type*> externaltypes;

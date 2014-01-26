@@ -204,7 +204,6 @@ namespace Calculon
 		{
 		};
 
-	private:
 		class CompilationException : public std::invalid_argument
 		{
 		public:
@@ -214,6 +213,7 @@ namespace Calculon
 			}
 		};
 
+	private:
 		struct Position
 		{
 			int line;

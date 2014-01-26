@@ -451,6 +451,7 @@ struct ASTToplevel : public ASTFunctionBody
 {
 	ToplevelSymbol* toplevel;
 
+	using ASTNode::position;
 	using ASTFrame::symbolTable;
 	using ASTFunctionBody::function;
 	using ASTFunctionBody::body;
@@ -471,6 +472,12 @@ struct ASTToplevel : public ASTFunctionBody
 	llvm::Value* codegen(Compiler& compiler)
 	{
 		llvm::Value* v = body->codegen(compiler);
+		if (v)
+		{
+			std::stringstream s;
+			s << "toplevel code must end in a 'return' statement";
+			throw CompilationException(position.formatError(s.str()));
+		}
 		compiler.builder.CreateRetVoid();
 
 		return NULL;
