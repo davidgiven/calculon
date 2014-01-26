@@ -448,22 +448,7 @@ public:
 		Type* returntype = lookup_type(state, returntypename);
 		llvm::Type* externalreturntype = returntype->llvmx;
 
-		/* If we're returning a vector, insert the return pointer now.
-		 */
-
-		if (returntype->asVector())
-		{
-			llvm::Value* p = state.builder.CreateAlloca(
-					returntype->asVector()->llvm,
-					llvm::ConstantInt::get(state.intType, 1));
-
-			llvmvalues.push_back(p);
-			llvmtypes.push_back(p->getType());
-
-			externalreturntype = llvm::Type::getVoidTy(state.context);
-		}
-
-		/* Convert and add any other parameters. */
+		/* Convert and add ordinary parameters. */
 
 		while (pi != parameters.end())
 		{
@@ -487,6 +472,21 @@ public:
 
 			i++;
 			pi++;
+		}
+
+		/* If we're returning a vector, insert the return pointer at the end.
+		 */
+
+		if (returntype->asVector())
+		{
+			llvm::Value* p = state.builder.CreateAlloca(
+					returntype->asVector()->llvm,
+					llvm::ConstantInt::get(state.intType, 1));
+
+			llvmvalues.push_back(p);
+			llvmtypes.push_back(p->getType());
+
+			externalreturntype = llvm::Type::getVoidTy(state.context);
 		}
 
 		llvm::FunctionType* ft = llvm::FunctionType::get(
