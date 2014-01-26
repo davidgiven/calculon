@@ -15,7 +15,10 @@ TESTS = \
 	sum \
 	n-vector-types \
 	n-vector-accessors \
-	arithmetic
+	arithmetic \
+	return-in-function \
+	missing-return \
+	duplicate-return
 	
 all: $(FILTER) tests
 
