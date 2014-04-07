@@ -181,12 +181,19 @@ public:
 	void typeError(CompilerState& state,
 			int index, llvm::Value* argument, Type* type)
 	{
+		assert(type);
+		typeError(state, index, argument, type->name);
+	}
+
+	void typeError(CompilerState& state,
+			int index, llvm::Value* argument, const string& type)
+	{
 		Type* at = state.types->find(argument->getType());
 
 		std::stringstream s;
 		s << "call to parameter " << index << " of function '" << name
 				<< "' with wrong type; got " << at->name
-				<< " but should have " << type->name;
+				<< " but should have " << type;
 		throw CompilationException(state.position.formatError(s.str()));
 	}
 
@@ -363,7 +370,7 @@ public:
 		while (pi != parameters.end())
 		{
 			llvm::Value* v = *pi;
-			typeCheckParameter(state, i, v, 0);
+			typeCheckParameter(state, i, v, NULL);
 			llvmtypes.push_back(v->getType());
 
 			i++;
@@ -508,7 +515,7 @@ public:
 	{
 		Type* at = state.types->find(argument->getType());
 		if (!at->equals(state.booleanType))
-			typeError(state, index, argument, type);
+			typeError(state, index, argument, "boolean");
 	}
 };
 
@@ -526,7 +533,7 @@ public:
 				int index, llvm::Value* argument, Type* type)
 	{
 		if (argument->getType() != state.realType->llvm)
-			typeError(state, index, argument, type);
+			typeError(state, index, argument, "real");
 	}
 };
 
@@ -544,7 +551,7 @@ public:
 				int index, llvm::Value* argument, Type* type)
 	{
 		if (argument->getType() != state.realType->llvm)
-			typeError(state, index, argument, type);
+			typeError(state, index, argument, "real");
 	}
 
 	llvm::Type* returnType(CompilerState& state,
@@ -568,7 +575,7 @@ public:
 				int index, llvm::Value* argument, Type* type)
 	{
 		if (!state.types->find(argument->getType())->asVector())
-			typeError(state, index, argument, type);
+			typeError(state, index, argument, "vector");
 	}
 };
 
@@ -587,7 +594,7 @@ public:
 	{
 		Type* at = state.types->find(argument->getType());
 		if (!at->equals(state.realType) && !at->asVector())
-			typeError(state, index, argument, type);
+			typeError(state, index, argument, "real or vector");
 	}
 
 	llvm::Type* returnType(CompilerState& state,
@@ -659,7 +666,7 @@ public:
 	{
 		Type* at = state.types->find(argument->getType());
 		if (!at->equals(state.realType) && !at->asVector())
-			typeError(state, index, argument, type);
+			typeError(state, index, argument, "real or vector");
 
 		return BitcodeHomogeneousSymbol::typeCheckParameter(state, index,
 				argument, type);
@@ -693,7 +700,7 @@ public:
 			case 1:
 				_firsttype = t;
 				if (!t->equals(state.realType) && !t->asVector())
-					typeError(state, index, argument, type);
+					typeError(state, index, argument, "real or vector");
 				break;
 
 			default:
@@ -702,7 +709,7 @@ public:
 				if (t->equals(state.realType))
 					break;
 
-				typeError(state, index, argument, type);
+				typeError(state, index, argument, _firsttype);
 				break;
 		}
 	}
@@ -761,7 +768,7 @@ public:
 		while (pi != parameters.end())
 		{
 			llvm::Value* v = *pi;
-			typeCheckParameter(state, i, v, 0);
+			typeCheckParameter(state, i, v, NULL);
 			llvmtypes.push_back(v->getType());
 
 			i++;
