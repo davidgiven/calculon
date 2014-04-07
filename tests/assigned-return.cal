@@ -1,0 +1,6 @@
+/// -i 1 -o 1 < 1vector.data
+
+let out = in;
+let z = return;
+return
+

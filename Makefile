@@ -42,6 +42,8 @@ demo/%: demo/%.cc Makefile $(CALCULON)
 	$(CXX) $(CFLAGS) -o $@ $< $(LLVM) $(NOISE) -lboost_program_options
 
 TESTS = \
+	assigned-return \
+	two-returns \
 	type-aliases \
 	copy \
 	vector-splat \
