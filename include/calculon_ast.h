@@ -276,6 +276,13 @@ struct ASTDefineVariable : public ASTFrame
 		llvm::Value* v = value->codegen(compiler);
 		_symbol->value = v;
 
+		if (!v)
+		{
+			std::stringstream s;
+			s << "you can't assign 'return' to anything";
+			throw TypeException(s.str(), this);
+		}
+
 		if (!type)
 		{
 			/* Now we have a value for this variable, we can find out what
@@ -722,6 +729,13 @@ struct ASTCondition : public ASTNode
 		llvm::Value* falseresult = falseval->codegen(compiler);
 		falseblock = compiler.builder.GetInsertBlock();
 		compiler.builder.CreateBr(mergeblock);
+
+		if (!trueresult || !falseresult)
+		{
+			std::stringstream s;
+			s << "you can't use 'return' inside conditionals";
+			throw CompilationException(position.formatError(s.str()));
+		}
 
 		if (trueresult->getType() != falseresult->getType())
 		{
