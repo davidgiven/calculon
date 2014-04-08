@@ -1,6 +1,6 @@
 /// -i 3 -o 1 < 3vector.data
 
-let dot(a: vector*3, b: vector*3) = (a*b).sum;
+let dot(a: vector*3, b: vector*3) = (a*b).sum in
 
-let out = [dot(in, in)];
+let out = [dot(in, in)] in
 return

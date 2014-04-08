@@ -82,11 +82,11 @@ Here is a more complicated one:
 <verbatim>
 /* On input, A and B are vectors */
 /* On output, ANGLE is a real */
-let magnitude(V: vector*3) = sqrt((V*V).sum);
-let nA = A / magnitude(A);
-let nB = B / magnitude(B);
-let dot(V1: vector*3, V2: vector*3) = (V1*V2).sum;
-let ANGLE = acos(dot(nA, nB));
+let magnitude(V: vector*3) = sqrt((V*V).sum) in
+let nA = A / magnitude(A) in
+let nB = B / magnitude(B) in
+let dot(V1: vector*3, V2: vector*3) = (V1*V2).sum in
+let ANGLE = acos(dot(nA, nB)) in
 return
 </verbatim>
 

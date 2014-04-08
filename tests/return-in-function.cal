@@ -1,6 +1,6 @@
 /// -i 1 -o 1 < 1vector.data
 
-let f(x) = return;
-let out = f(in);
+let f(x) = return in
+let out = f(in) in
 return
 

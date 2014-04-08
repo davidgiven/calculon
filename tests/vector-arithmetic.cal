@@ -1,16 +1,16 @@
 /// -i 4 -o 16 < 4vector.data
 
-let a = [in.x, in.y];
-let b = [in.z, in.w];
-let add1 = a + b;
-let sub1 = a - b;
-let mul1 = a * b;
-let div1 = a / b;
-let add2 = a + b.x;
-let sub2 = a - b.x;
-let mul2 = a * b.x;
-let div2 = a / b.x;
+let a = [in.x, in.y] in
+let b = [in.z, in.w] in
+let add1 = a + b in
+let sub1 = a - b in
+let mul1 = a * b in
+let div1 = a / b in
+let add2 = a + b.x in
+let sub2 = a - b.x in
+let mul2 = a * b.x in
+let div2 = a / b.x in
 let out = [add1.x, add1.y, sub1.x, sub1.y, mul1.x, mul1.y, div1.x, div1.y,
-           add2.x, add2.y, sub2.x, sub2.y, mul2.x, mul2.y, div2.x, div2.y];
+           add2.x, add2.y, sub2.x, sub2.y, mul2.x, mul2.y, div2.x, div2.y] in
 return
 

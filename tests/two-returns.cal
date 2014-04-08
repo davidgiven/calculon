@@ -1,9 +1,9 @@
 /// -i 1 -o 1 < 1vector.data
 
 if (in.x < 0) then
-	let out = [-1];
+	let out = [-1] in
 	return
 else
-	let out = [1];
+	let out = [1] in
 	return
 

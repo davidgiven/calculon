@@ -1,4 +1,4 @@
 /// -i 2 -o 4 < 2vector.data
 
-let out = [*4 in.x] + [*4 in.y];
+let out = [*4 in.x] + [*4 in.y] in
 return

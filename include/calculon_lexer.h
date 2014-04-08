@@ -27,7 +27,6 @@ public:
 		CLOSEBLOCK,
 		COMMA,
 		COLON,
-		SEMICOLON,
 		DOT
 	};
 
@@ -141,7 +140,6 @@ public:
 			case CLOSEBLOCK: return "']'";
 			case COMMA:      return "','";
 			case COLON:      return "':'";
-			case SEMICOLON:  return "';'";
 			case DOT:        return "'.'";
 
 			default:
@@ -299,8 +297,6 @@ private:
 			_token = COMMA;
 		else if (_idValue == ".")
 			_token = DOT;
-		else if (_idValue == ";")
-			_token = SEMICOLON;
 		else
 			_token = OPERATOR;
 	}

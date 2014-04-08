@@ -41,15 +41,15 @@ The following list describes the major syntactic elements:
   *  <code>V.sum</code> computes the sum of all elements in the vector. (You
      can calculate the Pythagorean magnitude of a vector with
      <code>sqrt(V*V)</code>, of course.)
-  *  <code>let i = 1; ...expr...</code> defines a variable that becomes
+  *  <code>let i = 1 in expr</code> defines a variable that becomes
      available when evaluating <code>expr</code>. The new variable is does
      not have an explicit type and its type is inferred from its definition.
-  *  <code>let v: vector*3 = &#91;0, 1, 2]; ...expr...</code> defines a variable
+  *  <code>let v: vector*3 = &#91;0, 1, 2] in expr</code> defines a variable
      that becomes available when evaluating <code>expr</code>. The new
      variable is explicitly typed and if you try to define a variable with a
      type that differs from its declaration you will get an error. You must
      specify the size of vectors.
-  *  <code>let f(v1:vector*3, v2:vector*3):vector*3 = v1 + v2; ...expr...</code>
+  *  <code>let f(v1:vector*3, v2:vector*3):vector*3 = v1 + v2 in expr</code>
      defines a function. The new function is available both when evaluating
      <code>expr</code> <b>and</b> inside the function body, which allows
      recursion. Note that the scoping rules here are different to when you

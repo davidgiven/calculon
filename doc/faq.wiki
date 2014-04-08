@@ -1,14 +1,15 @@
 <title>Frequently asked questions</title>
 
-<h3>How do semicolons work?</h3>
+<h3>How does <code>in</code> work?</h3>
 
-Semicolons are syntactically part of the <code>let</code> expression. It works like this:
+<code>in</code> is syntactically part of the <code>let</code> expression. It
+works like this:
 
 <verbatim>
-let i = 1 ; expr(i)
+let i = 1 in expr(i)
 </verbatim>
 
-The <code>;</code> seperates the <i>definition</i> of the variable or
+The <code>in</code> seperates the <i>definition</i> of the variable or
 function from the code which <i>uses</i> the variable or function.
 
 When a Calculon script has multiple let expressions, what's actually happening
@@ -16,17 +17,17 @@ is that all expressions after the first are embedded inside the body of the
 first. These two equivalent code blocks should make things clearer:
 
 <verbatim>
-let a = 1;
-let b = 2;
-let c = 3;
+let a = 1 in
+let b = 2 in
+let c = 3 in
 a + b + c
 </verbatim>
 
 <verbatim>
-let a = 1; (let b = 2; (let c = 3; (a+b+c)))
+let a = 1 in (let b = 2 in (let c = 3 in (a+b+c)))
 </verbatim>
 
-If you prefer, it's possible to think of <code>;</code> as terminating the
+If you prefer, it's possible to think of <code>in</code> as terminating the
 definition part of a let expression.
 
 
@@ -76,7 +77,7 @@ See <a href="../demo/fractal.cal">fractal.cal</a> for a real example.
 <h3>When I'm calling out to an external function, how do I know where I'm
 being called from?</h3>
 
-Frequently it's desirable to pass context through from the called of a
+Frequently it's desirable to pass context through from the caller of a
 Calculon script to a function that's being called by a Calculon script. For
 example: the function that looks up a value in a 2D texture needs to know
 which texture to use.

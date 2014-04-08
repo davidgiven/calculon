@@ -1,10 +1,10 @@
 /// < 1vector.data
-let v1 = [in];
-let v2 = [in+1, in+2];
-let v3 = [in+1, in+2, in+3];
-let v4 = [in+1, in+2, in+3, in+4];
-let v5 = [in+1, in+2, in+3, in+4, in+5];
-let v6 = [in+1, in+2, in+3, in+4, in+5, in+6];
-let out = v1.sum + v2.sum + v3.sum + v4.sum + v5.sum + v6.sum;
+let v1 = [in] in
+let v2 = [in+1, in+2] in
+let v3 = [in+1, in+2, in+3] in
+let v4 = [in+1, in+2, in+3, in+4] in
+let v5 = [in+1, in+2, in+3, in+4, in+5] in
+let v6 = [in+1, in+2, in+3, in+4, in+5, in+6] in
+let out = v1.sum + v2.sum + v3.sum + v4.sum + v5.sum + v6.sum in
 return
 

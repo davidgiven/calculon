@@ -606,7 +606,7 @@ private:
 			ASTNode* value = parse_expression(lexer);
 			ASTFunctionBody* definition = retain(
 					new ASTFunctionBody(position, f, value));
-			expect(lexer, L::SEMICOLON);
+			expect_identifier(lexer, "in");
 			ASTNode* body = parse_expression(lexer);
 			return retain(new ASTDefineFunction(position, f, definition, body));
 		}
@@ -616,7 +616,7 @@ private:
 
 			expect_operator(lexer, "=");
 			ASTNode* value = parse_expression(lexer);
-			expect(lexer, L::SEMICOLON);
+			expect_identifier(lexer, "in");
 			ASTNode* body = parse_expression(lexer);
 			return retain(new ASTDefineVariable(position, id, returntype,
 					value, body));

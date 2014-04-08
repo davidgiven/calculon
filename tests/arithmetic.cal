@@ -1,7 +1,7 @@
 /// -i 2 -o 4 < 2vector.data
 
-let a = in.x;
-let b = in.y;
-let out = [a+b, a-b, a*b, a/b];
+let a = in.x in
+let b = in.y in
+let out = [a+b, a-b, a*b, a/b] in
 return
 

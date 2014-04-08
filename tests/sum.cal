@@ -1,13 +1,13 @@
 /// -i 1 -o 8 < 1vector.data
-let x = in.x;
-let v1 = [x];
-let v2 = [x, x];
-let v3 = [x, x, x];
-let v4 = [x, x, x, x];
-let v5 = [x, x, x, x, x];
-let v6 = [x, x, x, x, x, x];
-let v7 = [x, x, x, x, x, x, x];
-let v8 = [x, x, x, x, x, x, x, x];
-let out = [v1.sum, v2.sum, v3.sum, v4.sum, v5.sum, v6.sum, v7.sum, v8.sum];
+let x = in.x in
+let v1 = [x] in
+let v2 = [x, x] in
+let v3 = [x, x, x] in
+let v4 = [x, x, x, x] in
+let v5 = [x, x, x, x, x] in
+let v6 = [x, x, x, x, x, x] in
+let v7 = [x, x, x, x, x, x, x] in
+let v8 = [x, x, x, x, x, x, x, x] in
+let out = [v1.sum, v2.sum, v3.sum, v4.sum, v5.sum, v6.sum, v7.sum, v8.sum] in
 return
 

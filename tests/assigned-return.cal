@@ -1,6 +1,6 @@
 /// -i 1 -o 1 < 1vector.data
 
-let out = in;
-let z = return;
+let out = in in
+let z = return in
 return
 
