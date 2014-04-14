@@ -107,9 +107,7 @@ quite obvious.
 Calculon reals are available as <code>Compiler::Real</code>, and Calculon
 vectors as the appropriate kind of <code>Compiler::Vector</code>. Reals are
 passed in the obvious way, as in the example above. However, vectors are
-passed by pointer. If the Calculon script returns a vector, then an extra
-initial parameter is added which points to where the return parameter should
-be written.
+passed by pointer.
 
 Return parameters are passed <i>last</i>, and always by pointer.
 
@@ -169,8 +167,8 @@ it just trusts you. If you get it wrong, you may get garbage data or crashes.
 
 Only one value may be returned. Reals (and doubles and floats) are returned
 <i>inline</i> --- this is different from the calling convention used for
-Calculon scripts.  Vectors are returned by pointer via an extra parameter, as
-for Calculon scripts.
+Calculon scripts.  Vectors are returned by pointer via an extra parameter which
+appears last.
 
 Note carefully! Calculon is designed for scripts that have <b>no side
 effects</b>. If you call out to a function which does something... well, it'll
@@ -196,9 +194,9 @@ v[0] = 1; v[1] = 2; v[2] = 3; v[3] = 4;
 symbols.add("v", v);
 </verbatim>
 
-These values are compiled as literal into the output machine code, which means
+These values are compiled as literals into the output machine code, which means
 they are fast. However, one the script has been compiled, they cannot be
-changed. Use input parameters if you need to do this.
+changed. Use input parameters if you need values which change.
 
 <h3>Dependencies</h3>
 

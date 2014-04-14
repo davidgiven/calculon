@@ -14,7 +14,7 @@ supports 3-vectors, reals and booleans as first-class values.
 
 <h3>What's new?</h3>
 
-<b>2014-XX-XX: Version 0.4 released!</b> Now supporting LLVM 3.3 and Apple OS
+<b>2014-04-14: Version 0.3 released!</b> Now supporting LLVM 3.3 and Apple OS
 X; the language supports multiple return values from scripts, and it's all even
 faster!
 
@@ -45,7 +45,7 @@ fossil open ../calculon.fossil
 </verbatim>
 
 You will need an installation of
-<a href="http://llvm.org/releases/download.html#3.2">LLVM 3.3</a>, which does
+<a href="http://llvm.org/releases/download.html#3.3">LLVM 3.3</a>, which does
 the heavy lifting. If you're on Debian, install the <code>llvm-3.3-dev</code>
 package. If you're on OS X, then Calculon should build cleanly under Homebrew
 with the <code>llvm33</code> package installed. If you're on Windows...
