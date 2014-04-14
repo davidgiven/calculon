@@ -10,6 +10,7 @@ CXX = g++
 
 UNAME=$(shell uname)
 ifeq ($(UNAME), Darwin)
+	# Detect OSX.
 	BOOST = \
 		-I$(shell brew --prefix)/include \
 		-L$(shell brew --prefix)/lib
@@ -23,10 +24,10 @@ ifeq ($(UNAME), Darwin)
 		-L$(shell llvm-config-3.3 --libdir) \
 		-lLLVM-3.3
 else
+	# Assume a generic Unixoid.
 	BOOST =
 	NOISE = -lnoise -DNOISEINC=\"libnoise/noise.h\"
 	LLVM = -I$(shell llvm-config-3.3 --includedir) -lLLVM-3.3
-	#LLVM = $(shell /tmp/llvm/bin/llvm-config --cflags --ldflags --libs)
 endif
 
 CFLAGS = -g -Iinclude $(BOOST)
