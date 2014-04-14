@@ -2,7 +2,7 @@
                                =============
                                   
                          Copyright (C) 2014 David Given
-                                 2014-XX-XX
+                                 2014-04-14
             
             
                                  
@@ -47,6 +47,10 @@ filter
   Provides a very easy way to run Calculon scripts on data: filters numbers
   from stdin to stdout, processing each one with a supplied script.
 
+Assuming the makefile works for you, which it should if you're on OSX or a
+reasonable Unixoid, just doing 'make' should build these (they're in the demo
+directory).
+
 
 
 MORE INFORMATION
@@ -59,7 +63,7 @@ less plain text format) in the doc directory.
 
 Calculon comes with a test suite. To run this, do:
 
-  make -C test
+  make test
   
 It uses the filter command from the demo directory to actually run the tests
 (and will build it automatically). If you make any changes, please run this.
