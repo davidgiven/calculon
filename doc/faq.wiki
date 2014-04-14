@@ -110,10 +110,3 @@ For example, this script:
 
 <verbatim>(x:real, y:real, v:vector*5): (x:real, y:real, v:vector*5)</verbatim>
 
-
-<h2 class='comments-title'>Comments on this page</h2>
-<table class='comments' border='0'><tr>
-<td id='commentator-viewer'></td>
-<td id='commentator-poster'></td>
-</tr></table>
-

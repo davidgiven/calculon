@@ -143,9 +143,3 @@ their Posix namesakes. As of writing, the list consists of:
   *  <code>y0()</code>
   *  <code>y1()</code>
 
-<h2 class='comments-title'>Comments on this page</h2>
-<table class='comments' border='0'><tr>
-<td id='commentator-viewer'></td>
-<td id='commentator-poster'></td>
-</tr></table>
-
