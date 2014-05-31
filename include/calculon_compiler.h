@@ -207,6 +207,8 @@ public:
 
 			v->setName(symbol->name);
 			symbol->value = v;
+
+			ii++;
 		}
 
 		/* Generate the IR code. */
