@@ -334,6 +334,7 @@ public:
 			const vector<llvm::Value*>& parameters)
 	{
 		assert(false);
+		throw 0;
 	}
 
 	ToplevelSymbol* isToplevel()
