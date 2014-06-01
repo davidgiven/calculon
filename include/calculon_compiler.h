@@ -544,7 +544,11 @@ private:
 			string id = lexer.id();
 			int p = _operatorPrecedence[id];
 			if (p == 0)
-				lexer.error("unrecognised operator");
+			{
+				std::stringstream s;
+				s << "unrecognised operator '" << id << "'";
+				lexer.error(s.str());
+			}
 
 			if (p < precedence)
 				break;
