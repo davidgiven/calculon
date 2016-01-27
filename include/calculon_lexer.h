@@ -84,6 +84,12 @@ public:
 			int c;
 			for (;;)
 			{
+				if (_data.eof())
+				{
+					_token = ENDOFFILE;
+					return ENDOFFILE;
+				}
+
 				c = _data.peek();
 				if (!std::isspace(c))
 					break;
