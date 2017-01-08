@@ -1,3 +1,14 @@
+Version 0.3.1
+=============
+
+* Crudely update to work with LLVM 3.7, as 3.3 is creakingly old.
+* Some C++11isms, sorry. It really needs a proper conversion pass.
+
+Version 0.3
+===========
+
+(changelog lost)
+
 Version 0.2
 ===========
 

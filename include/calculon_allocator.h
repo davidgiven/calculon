@@ -50,7 +50,7 @@ public:
 	template <class T>
 	T* retain(T* object)
 	{
-		auto_ptr<T> ptr(object); // make exception safe
+		unique_ptr<T> ptr(object); // make exception safe
 		_objects.insert(object); // remember pointer
 		ptr.release();
 		return object;

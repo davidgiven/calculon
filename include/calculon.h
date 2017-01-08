@@ -6,10 +6,6 @@
 #ifndef CALCULON_H
 #define CALCULON_H
 
-#if !defined(CALCULON_LLVM)
-	#define CALCULON_LLVM 33
-#endif
-
 #include <stdexcept>
 #include <string>
 #include <map>
@@ -29,10 +25,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Attributes.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/ExecutionEngine/JIT.h"
-#include "llvm/PassManager.h"
-#include "llvm/Analysis/Verifier.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/TargetSelect.h"
@@ -46,7 +41,7 @@ namespace Calculon
 	using std::map;
 	using std::pair;
 	using std::set;
-	using std::auto_ptr;
+	using std::unique_ptr;
 
 	namespace Impl
 	{
@@ -277,7 +272,7 @@ namespace Calculon
 			llvm::LLVMContext _context;
 			SymbolTable& _symbols;
 			llvm::Module* _module;
-			llvm::ExecutionEngine* _engine;
+			std::unique_ptr<llvm::ExecutionEngine> _engine;
 			llvm::Function* _function;
 			FuncType* _funcptr;
 
@@ -337,30 +332,35 @@ namespace Calculon
 			void init(std::istream& codestream, const string& signature,
 					const map<string, string>& typealiases)
 			{
-				_module = new llvm::Module("Calculon Function", _context);
+				unique_ptr<llvm::Module> module(new llvm::Module("Calculon Function", _context));
+				_module = module.get();
 
 				llvm::InitializeNativeTarget();
+				llvm::InitializeNativeTargetAsmPrinter();
+				llvm::InitializeNativeTargetAsmParser();
 
 				llvm::TargetOptions options;
 //				options.PrintMachineCode = true;
 				options.UnsafeFPMath = true;
-				options.RealignStack = true;
 				options.LessPreciseFPMADOption = true;
 				options.GuaranteedTailCallOpt = true;
 				options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
 
 				string s;
-				_engine = llvm::EngineBuilder(_module)
-					.setErrorStr(&s)
-					.setOptLevel(llvm::CodeGenOpt::Aggressive)
-					.setTargetOptions(options)
-					.create();
+				_engine.reset(
+					llvm::EngineBuilder(std::move(module))
+						.setEngineKind(llvm::EngineKind::JIT)
+						.setErrorStr(&s)
+						.setOptLevel(llvm::CodeGenOpt::Aggressive)
+						.setTargetOptions(options)
+						.create()
+				);
 				if (!_engine)
 					throw CompilationException(s);
 				_engine->DisableLazyCompilation();
 	//			_engine->DisableSymbolSearching();
 
-				Compiler compiler(_context, _module, _engine, typealiases);
+				Compiler compiler(_context, _module, _engine.get(), typealiases);
 
 				/* Compile the program. */
 
@@ -368,7 +368,6 @@ namespace Calculon
 				ToplevelSymbol* f = compiler.compile(signaturestream, codestream,
 						&_symbols);
 				_function = f->function;
-
 
 				generate_machine_code();
 			}
@@ -380,8 +379,8 @@ namespace Calculon
 				//_module->dump();
 				llvm::verifyFunction(*_function);
 
-				llvm::FunctionPassManager fpm(_module);
-				llvm::PassManager mpm;
+				llvm::legacy::FunctionPassManager fpm(_module);
+				llvm::legacy::PassManager mpm;
 				llvm::PassManagerBuilder pmb;
 				pmb.OptLevel = 3;
 				pmb.populateFunctionPassManager(fpm);
@@ -393,7 +392,7 @@ namespace Calculon
 				fpm.run(*_function);
 				mpm.run(*_module);
 
-				_funcptr = (FuncType*) _engine->getPointerToFunction(_function);
+				_funcptr = (FuncType*) _engine->getFunctionAddress("Entrypoint");
 				assert(_funcptr);
 			}
 		};
