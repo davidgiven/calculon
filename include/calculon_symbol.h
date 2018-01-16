@@ -487,7 +487,7 @@ public:
 		/* Create the function. */
 
 		llvm::Constant* iptr = llvm::ConstantInt::get(
-				state.engine->getDataLayout()->getIntPtrType(state.context, 0),
+				state.engine->getDataLayout().getIntPtrType(state.context, 0),
 				(uint64_t) pointer);
 		llvm::Value* fptr = llvm::ConstantExpr::getIntToPtr(iptr,
 				llvm::PointerType::get(ft, 0));
@@ -780,10 +780,7 @@ public:
 				returnType(state, llvmtypes), llvmtypes, false);
 
 		llvm::Constant* f = state.module->getOrInsertFunction(
-				intrinsicName(llvmtypes), ft,
-				llvm::AttributeSet().addAttribute(state.context,
-							llvm::AttributeSet::FunctionIndex,
-							llvm::Attribute::ReadNone));
+				intrinsicName(llvmtypes), ft);
 
 		return state.builder.CreateCall(f, parameters);
 	}

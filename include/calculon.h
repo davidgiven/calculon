@@ -325,7 +325,7 @@ namespace Calculon
 
 			void dump()
 			{
-				_module->dump();
+				_module->print(llvm::outs(), nullptr);
 			}
 
 		private:
@@ -342,7 +342,6 @@ namespace Calculon
 				llvm::TargetOptions options;
 //				options.PrintMachineCode = true;
 				options.UnsafeFPMath = true;
-				options.LessPreciseFPMADOption = true;
 				options.GuaranteedTailCallOpt = true;
 				options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
 

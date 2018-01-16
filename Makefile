@@ -11,7 +11,7 @@ CXX = g++
 # Assume a generic Unixoid.
 BOOST =
 NOISE = -lnoise -DNOISEINC=\"libnoise/noise.h\"
-LLVM = -I$(shell llvm-config-3.7 --includedir --ldflags) -lLLVM-3.7
+LLVM = -I$(shell llvm-config-5.0 --includedir --ldflags) -lLLVM-5.0
 
 CFLAGS = -g -Iinclude $(BOOST)
 CALCULON = $(wildcard include/calculon*.h)
