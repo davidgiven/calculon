@@ -185,7 +185,7 @@ private:
 
 	void read_number()
 	{
-		std::ios::streampos pos = _data.tellg();
+		std::streampos pos = _data.tellg();
 
 		_data >> _realValue;
 		if (!_data)
