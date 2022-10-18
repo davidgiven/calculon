@@ -161,7 +161,7 @@ public:
 		size(size)
 	{
 		llvm::Type* t = state.types->find("real")->llvm;
-		llvm = llvm::VectorType::get(t, size);
+		llvm = llvm::VectorType::get(t, size, false);
 
 		llvmx = llvm::PointerType::get(llvm, 0);
 	}
@@ -209,7 +209,7 @@ public:
 
 	llvm::Value* loadFromArray(llvm::Value* pointer) const
 	{
-		return state.builder.CreateLoad(pointer);
+		return state.builder.CreateLoad(llvm, pointer);
 	}
 
 };

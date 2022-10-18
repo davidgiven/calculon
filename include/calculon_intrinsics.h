@@ -437,7 +437,7 @@ class StandardSymbolTable : public MultipleSymbolTable, public Allocator
 			 */
 
 			llvm::Type* desttype = llvm::VectorType::get(state.realType->llvm,
-					results.size());
+					results.size(), false);
 			llvm::Value* v = llvm::UndefValue::get(desttype);
 
 			for (unsigned i = 0; i < results.size(); i++)

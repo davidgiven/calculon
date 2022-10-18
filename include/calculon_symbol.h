@@ -492,7 +492,8 @@ public:
 		llvm::Value* fptr = llvm::ConstantExpr::getIntToPtr(iptr,
 				llvm::PointerType::get(ft, 0));
 
-		llvm::Value* retval = state.builder.CreateCall(fptr, llvmvalues);
+		llvm::Value* retval = state.builder.CreateCall(
+				llvm::FunctionCallee(ft, fptr), llvmvalues);
 		if (returntype->asVector())
 			retval = returntype->asVector()->loadFromArray(llvmvalues[0]);
 		else
@@ -779,7 +780,7 @@ public:
 		llvm::FunctionType* ft = llvm::FunctionType::get(
 				returnType(state, llvmtypes), llvmtypes, false);
 
-		llvm::Constant* f = state.module->getOrInsertFunction(
+		llvm::FunctionCallee f = state.module->getOrInsertFunction(
 				intrinsicName(llvmtypes), ft);
 
 		return state.builder.CreateCall(f, parameters);
